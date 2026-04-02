@@ -211,8 +211,8 @@ tbody td{padding:11px 15px;font-size:13px;}
     <div class="nav-tabs">
       <button class="tab active" id="tDash" onclick="goTab('dash')">Dashboard</button>
       <button class="tab" id="tEquipos" onclick="goTab('equipos')">Equipos</button>
-      <button class="tab" id="tAdmin" style="display:none" onclick="goTab('admin')">Administrar</button>
-    </div>
+      <button class="tab" id="tReportes" onclick="goTab('reportes')">Reportes</button>
+      <button class="tab" id="tAdmin" style="display:none" onclick="goTab('admin')">Administrar</button>    </div>
     <button class="hamburger" onclick="toggleMenu()" id="hamburgerBtn">☰</button>
     <div class="nav-r">
       <div class="avatar" id="navAv">U</div>
@@ -226,6 +226,7 @@ tbody td{padding:11px 15px;font-size:13px;}
   <div class="mobile-menu" id="mobileMenu">
     <button class="m-tab active" id="mDash" onclick="goTab('dash');toggleMenu()">📊 Dashboard</button>
     <button class="m-tab" id="mEquipos" onclick="goTab('equipos');toggleMenu()">🔧 Equipos</button>
+    <button class="m-tab" id="mReportes" onclick="goTab('reportes');toggleMenu()">📄 Reportes</button>
     <button class="m-tab" id="mAdmin" style="display:none" onclick="goTab('admin');toggleMenu()">⚙️ Administrar</button>
     <button class="m-tab" onclick="doLogout()" style="color:#F09595">🚪 Salir</button>
   </div>
@@ -326,6 +327,59 @@ tbody td{padding:11px 15px;font-size:13px;}
     </div>
   </div>
 
+  <!-- REPORTES -->
+  <div id="pReportes" style="display:none;flex:1;">
+    <div class="main">
+      <div class="pg-title">Reportes</div>
+      <div class="pg-sub">Exporta inspecciones a Excel por cliente, mes y tipo de equipo</div>
+      <div style="background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:24px;margin-bottom:24px;">
+        <div class="sec-title" style="margin-bottom:18px;">Filtros de reporte</div>
+        <div class="fgrid">
+          <div class="ff">
+            <label class="fl">Cliente</label>
+            <select class="fs" id="rCliente"><option value="">— Todos los clientes —</option></select>
+          </div>
+          <div class="ff">
+            <label class="fl">Mes</label>
+            <input class="fi" type="month" id="rMes"/>
+          </div>
+          <div class="ff">
+            <label class="fl">Tipo de equipo</label>
+            <select class="fs" id="rTipo">
+              <option value="">— Todos los tipos —</option>
+              <option value="extintor">🧯 Extintores</option>
+              <option value="hidrante">🚒 Hidrantes</option>
+              <option value="traje_bomberos">🧥 Trajes Bomberos</option>
+              <option value="camilla">🛏 Camillas</option>
+              <option value="regadera">🚿 Regaderas/Lavaojos</option>
+            </select>
+          </div>
+          <div class="ff" style="justify-content:flex-end;padding-top:20px;">
+            <button class="btn-s fire" onclick="buscarReporte()" style="padding:11px 20px;font-size:14px;">🔍 Buscar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resultados -->
+      <div id="rResultados" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+          <div class="sec-title" style="margin:0" id="rTitulo">Resultados</div>
+          <button class="btn-inspect" onclick="exportarExcel()" style="padding:10px 20px;font-size:13px;margin:0;">
+            📥 Descargar Excel
+          </button>
+        </div>
+        <div class="tbl-wrap" style="overflow-x:auto;">
+          <table id="rTabla">
+            <thead id="rThead"></thead>
+            <tbody id="rTbody"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;font-size:12px;color:var(--mist)" id="rConteo"></div>
+      </div>
+      <div id="rVacio" style="display:none;" class="empty">No se encontraron inspecciones con los filtros seleccionados.</div>
+    </div>
+  </div>
+
   <!-- ADMIN -->
   <div id="pAdmin" style="display:none;flex:1;">
     <div class="main">
@@ -413,7 +467,127 @@ async function loadPerfil(user) {
   currentPerfil = data;
 }
 
-async function doLogout() {
+async // ── REPORTES ──
+let reporteData = [];
+
+async function initReportes() {
+  const { data } = await db.from('clientes').select('id,nombre').eq('activo',true);
+  const sel = document.getElementById('rCliente');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Todos los clientes —</option>' +
+    (data||[]).map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+  // Mes actual por defecto
+  const now = new Date();
+  document.getElementById('rMes').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+}
+
+async function buscarReporte() {
+  const clienteId = document.getElementById('rCliente').value;
+  const mes       = document.getElementById('rMes').value;
+  const tipo      = document.getElementById('rTipo').value;
+
+  loader(true);
+  reporteData = [];
+
+  const tablas = tipo ? [tipo] : ['extintor','hidrante','traje_bomberos','camilla','regadera'];
+  const tablaMap = {
+    extintor:'insp_extintores', hidrante:'insp_hidrantes',
+    traje_bomberos:'insp_traje_bomberos', camilla:'insp_camillas', regadera:'insp_regaderas'
+  };
+
+  for (const t of tablas) {
+    const tabla = tablaMap[t];
+    let q = db.from(tabla).select(`*, equipos(no_serie, area, tipo, subtipo, cliente_id, clientes(nombre))`);
+    if (mes) {
+      const [y,m] = mes.split('-');
+      const inicio = `${y}-${m}-01`;
+      const fin    = `${y}-${m}-${new Date(y,m,0).getDate()}`;
+      q = q.gte('fecha_inspeccion', inicio).lte('fecha_inspeccion', fin);
+    }
+    const { data } = await q;
+    if (data?.length) {
+      // Filtrar por cliente
+      const filtrado = clienteId
+        ? data.filter(r => r.equipos?.cliente_id === clienteId)
+        : data;
+      filtrado.forEach(r => { r._tipo = t; reporteData.push(r); });
+    }
+  }
+
+  loader(false);
+
+  if (!reporteData.length) {
+    document.getElementById('rResultados').style.display = 'none';
+    document.getElementById('rVacio').style.display = 'block';
+    return;
+  }
+
+  document.getElementById('rVacio').style.display = 'none';
+  document.getElementById('rResultados').style.display = 'block';
+  document.getElementById('rConteo').textContent = `${reporteData.length} inspecciones encontradas`;
+
+  const clienteNombre = document.getElementById('rCliente').options[document.getElementById('rCliente').selectedIndex].text;
+  document.getElementById('rTitulo').textContent = `${reporteData.length} inspecciones — ${clienteNombre}`;
+
+  // Construir tabla
+  const thead = document.getElementById('rThead');
+  const tbody = document.getElementById('rTbody');
+  thead.innerHTML = `<tr>
+    <th>Fecha</th><th>No. Serie</th><th>Área</th><th>Tipo</th><th>Cliente</th>
+    <th>Técnico</th><th>Estado</th><th>Observaciones</th>
+  </tr>`;
+  tbody.innerHTML = reporteData.map(r => {
+    const t = TIPOS[r._tipo]||{icon:'',label:r._tipo};
+    const est = r.estado==='ok'?'✓ OK':r.estado==='observacion'?'⚠ Obs':'✗ Crítico';
+    const estColor = r.estado==='ok'?'var(--ok)':r.estado==='observacion'?'var(--warn)':'var(--ng)';
+    return `<tr>
+      <td>${r.fecha_inspeccion||'—'}</td>
+      <td style="font-weight:500">${r.equipos?.no_serie||'—'}</td>
+      <td>${r.equipos?.area||'—'}</td>
+      <td>${t.icon} ${t.label}</td>
+      <td>${r.equipos?.clientes?.nombre||'—'}</td>
+      <td>${r.tecnico_nombre||'—'}</td>
+      <td style="color:${estColor};font-weight:500">${est}</td>
+      <td style="max-width:200px;white-space:normal;font-size:12px">${r.observaciones||'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function exportarExcel() {
+  if (!reporteData.length) return;
+
+  // Construir CSV con BOM para Excel en español
+  const BOM = '\uFEFF';
+  const headers = ['Fecha','No. Serie','Área','Tipo','Cliente','Técnico','Estado','Observaciones'];
+  const rows = reporteData.map(r => {
+    const t = TIPOS[r._tipo]||{label:r._tipo};
+    const est = r.estado==='ok'?'OK':r.estado==='observacion'?'Observación':'Crítico';
+    return [
+      r.fecha_inspeccion||'',
+      r.equipos?.no_serie||'',
+      r.equipos?.area||'',
+      t.label,
+      r.equipos?.clientes?.nombre||'',
+      r.tecnico_nombre||'',
+      est,
+      (r.observaciones||'').replace(/,/g,';'),
+    ].map(v=>`"${v}"`).join(',');
+  });
+
+  const csv = BOM + [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const mes  = document.getElementById('rMes').value || 'reporte';
+  const cli  = document.getElementById('rCliente').options[document.getElementById('rCliente').selectedIndex].text;
+  a.href = url;
+  a.download = `AS_Industrial_${cli}_${mes}.csv`.replace(/\s+/g,'_');
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✅ Archivo descargado — ábrelo con Excel');
+}
+
+function doLogout() {
   await db.auth.signOut();
   currentUser = null; currentPerfil = null;
   document.getElementById('vApp').style.display = 'none';
@@ -441,7 +615,7 @@ function showApp() {
 }
 
 // ── NAVEGACIÓN ──
-const PAGES = ['Dash','Equipos','Ficha','Form','Admin'];
+const PAGES = ['Dash','Equipos','Ficha','Form','Admin','Reportes'];
 function goTab(tab) {
   PAGES.forEach(p => {
     const el = document.getElementById('p'+p); if(el) el.style.display='none';
@@ -452,6 +626,7 @@ function goTab(tab) {
   const tb = document.getElementById('t'+T); if(tb) tb.classList.add('active');
   if(tab==='equipos') loadEquipos();
   if(tab==='admin')   { loadAdminTable(); loadClientesSelect(); }
+  if(tab==='reportes') initReportes();
   if(tab==='form' && currentEquipo) renderForm();
 }
 
