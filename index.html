@@ -587,7 +587,7 @@ function exportarExcel() {
   showToast('✅ Archivo descargado — ábrelo con Excel');
 }
 
-function doLogout() {
+async function doLogout() {
   await db.auth.signOut();
   currentUser = null; currentPerfil = null;
   document.getElementById('vApp').style.display = 'none';
