@@ -487,7 +487,7 @@ async function verFicha(equipo) {
   document.getElementById('fichaSerie').textContent = equipo.no_serie + ' · ' + t.label;
   document.getElementById('fichaNombre').textContent = (equipo.subtipo||t.label) + ' — ' + equipo.area;
   document.getElementById('fichaArea').textContent = '📍 ' + equipo.area + (equipo.departamento?' · '+equipo.departamento:'');
-  document.getElementById('fichaUrl').textContent = 'portal.asindustrial.mx/equipo/'+equipo.id;
+  document.getElementById('fichaUrl').textContent = 'asindustrial-portal.vercel.app/equipo/'+equipo.id;
   document.getElementById('fichaTipoBadge').innerHTML = `<span class="tipo-badge ${t.badge}">${t.icon} ${t.label}</span>`;
   document.getElementById('fichaInfoGrid').innerHTML = [
     ['No. de serie', equipo.no_serie],
@@ -871,7 +871,7 @@ async function saveEquipo() {
 }
 
 function printQR(id, serie) {
-  const url = `https://portal.asindustrial.mx/equipo/${id}`;
+  const url = `https://asindustrial-portal.vercel.app/equipo/${id}`;
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(url)}`;
   const win = window.open('','_blank');
   win.document.write(`<html><head><title>QR - ${serie}</title><style>
