@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AS Industrial — Portal de Inspecciones</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --fire:#E8390E;--fire-l:#FF6B3D;--coal:#1A1614;--ash:#2D2825;
+  --smoke:#4A4440;--mist:#8A7F7A;--fog:#C4B8B2;
+  --white:#FDFAF7;--ok:#2D9E6B;--ok-bg:#E8F5EE;
+  --warn:#C48A10;--warn-bg:#FDF4DC;--ng:#C42B2B;--ng-bg:#FAEAEA;
+  --r:14px;--rs:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--coal);color:var(--white);min-height:100vh;}
+.view{display:none;min-height:100vh;}
+.view.active{display:flex;flex-direction:column;}
+
+/* LOGIN */
+#vLogin{align-items:center;justify-content:center;position:relative;overflow:hidden;background:var(--coal);}
+.login-bg{position:absolute;inset:0;background:radial-gradient(ellipse 60% 60% at 80% 20%,rgba(232,57,14,.18) 0%,transparent 70%);pointer-events:none;}
+.login-card{position:relative;z-index:1;background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:24px;padding:48px;width:100%;max-width:420px;animation:up .5s cubic-bezier(.16,1,.3,1);}
+@keyframes up{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.logo{display:flex;align-items:center;gap:12px;margin-bottom:32px;}
+.logo-icon{width:42px;height:42px;background:var(--fire);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;}
+.logo-name{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;}
+.logo-name span{color:var(--fire);}
+h2{font-family:'Syne',sans-serif;font-size:24px;font-weight:700;margin-bottom:6px;}
+.sub{color:var(--mist);font-size:13px;margin-bottom:28px;}
+.field{margin-bottom:16px;}
+.field label{display:block;font-size:11px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;color:var(--fog);margin-bottom:7px;}
+.field input,.field select{width:100%;padding:13px 15px;background:var(--coal);border:1px solid rgba(255,255,255,.1);border-radius:var(--rs);color:var(--white);font-family:'DM Sans',sans-serif;font-size:15px;outline:none;transition:border-color .2s;}
+.field input:focus,.field select:focus{border-color:var(--fire);}
+.btn-fire{width:100%;padding:15px;background:var(--fire);border:none;border-radius:var(--rs);color:#fff;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;}
+.btn-fire:hover{background:var(--fire-l);}
+.err{background:var(--ng-bg);color:var(--ng);border-radius:var(--rs);padding:10px 14px;font-size:13px;margin-bottom:14px;display:none;}
+
+/* LOADER */
+.loader-overlay{display:none;position:fixed;inset:0;background:rgba(26,22,20,.85);z-index:999;align-items:center;justify-content:center;flex-direction:column;gap:12px;}
+.loader-overlay.show{display:flex;}
+.spinner{width:36px;height:36px;border:3px solid rgba(232,57,14,.3);border-top-color:var(--fire);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* NAVBAR */
+.navbar{background:var(--ash);border-bottom:1px solid rgba(255,255,255,.07);padding:0 22px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;}
+.nav-logo span{color:var(--fire);}
+.nav-tabs{display:flex;gap:4px;}
+.tab{background:none;border:none;color:var(--mist);padding:7px 13px;border-radius:var(--rs);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif;}
+.tab:hover{color:var(--white);background:rgba(255,255,255,.06);}
+.tab.active{color:var(--white);background:rgba(255,255,255,.1);}
+.nav-r{display:flex;align-items:center;gap:10px;}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--fire);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;}
+.rbadge{padding:2px 9px;border-radius:20px;font-size:11px;font-weight:500;}
+.r-admin{background:rgba(232,57,14,.2);color:var(--fire-l);}
+.r-tecnico{background:rgba(45,158,107,.2);color:#5DCAA5;}
+.r-cliente{background:rgba(196,138,16,.2);color:#EF9F27;}
+.btn-out{background:none;border:1px solid rgba(255,255,255,.12);color:var(--fog);padding:6px 12px;border-radius:var(--rs);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;}
+.btn-out:hover{border-color:var(--fire);color:var(--fire);}
+
+/* MAIN */
+.main{flex:1;padding:26px 22px;max-width:1080px;margin:0 auto;width:100%;}
+.pg-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin-bottom:4px;}
+.pg-sub{color:var(--mist);font-size:13px;margin-bottom:22px;}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px;}
+.stat{background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:18px;}
+.stat-l{font-size:11px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;color:var(--mist);margin-bottom:8px;}
+.stat-v{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;}
+.c-fire{color:var(--fire-l);}.c-ok{color:#5DCAA5;}.c-warn{color:#EF9F27;}.c-ng{color:#F09595;}
+
+/* TABLE */
+.tbl-wrap{background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);overflow:hidden;overflow-x:auto;}
+table{width:100%;border-collapse:collapse;}
+thead th{padding:11px 15px;text-align:left;font-size:11px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;color:var(--mist);border-bottom:1px solid rgba(255,255,255,.07);}
+tbody tr{border-bottom:1px solid rgba(255,255,255,.04);transition:background .15s;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:rgba(255,255,255,.03);}
+tbody td{padding:11px 15px;font-size:13px;}
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;}
+.b-ok{background:var(--ok-bg);color:var(--ok);}
+.b-warn{background:var(--warn-bg);color:var(--warn);}
+.b-ng{background:var(--ng-bg);color:var(--ng);}
+.btn-s{padding:5px 12px;border-radius:var(--rs);font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif;border:1px solid rgba(255,255,255,.12);background:none;color:var(--fog);}
+.btn-s:hover{border-color:var(--fire);color:var(--fire);}
+.btn-s.fire{background:var(--fire);border-color:var(--fire);color:#fff;}
+.btn-s.fire:hover{background:var(--fire-l);}
+
+/* FICHA */
+.ficha-hero{background:linear-gradient(135deg,var(--ash) 0%,rgba(45,40,37,.95) 100%);border-bottom:1px solid rgba(255,255,255,.07);padding:26px 22px;}
+.ficha-hdr{display:flex;align-items:flex-start;gap:16px;max-width:860px;margin:0 auto;}
+.ficha-ico{width:56px;height:56px;border-radius:14px;background:var(--fire);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
+.ficha-id{font-size:11px;color:var(--fire-l);font-weight:500;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;}
+.ficha-nm{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;margin-bottom:3px;}
+.ficha-ar{font-size:13px;color:var(--mist);}
+.fstatus{margin-left:auto;flex-shrink:0;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;}
+.fs-ok{background:rgba(45,158,107,.15);color:#5DCAA5;border:1px solid rgba(45,158,107,.3);}
+.fs-warn{background:rgba(196,138,16,.15);color:#EF9F27;border:1px solid rgba(196,138,16,.3);}
+.fs-ng{background:rgba(196,43,43,.15);color:#F09595;border:1px solid rgba(196,43,43,.3);}
+.ficha-body{max-width:860px;margin:22px auto;padding:0 22px;}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:22px;}
+.ic{background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:14px;}
+.ic-l{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--mist);margin-bottom:4px;}
+.ic-v{font-size:14px;font-weight:500;}
+.sec-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:12px;}
+.chk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:8px;margin-bottom:22px;}
+.chk{background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--rs);padding:10px 13px;display:flex;align-items:center;gap:8px;font-size:13px;}
+.chk-i{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;}
+.ci-ok{background:rgba(45,158,107,.2);color:#5DCAA5;}
+.ci-ng{background:rgba(196,43,43,.2);color:#F09595;}
+.ci-na{background:rgba(138,127,122,.2);color:var(--mist);}
+.obs-box{background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:16px;margin-bottom:22px;font-size:13px;line-height:1.7;color:var(--fog);}
+.hist-list{display:flex;flex-direction:column;gap:8px;margin-bottom:22px;}
+.hist-i{background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;gap:12px;}
+.hist-d{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--fog);min-width:80px;}
+.hist-t{font-size:12px;color:var(--mist);flex:1;}
+.btn-inspect{display:inline-flex;align-items:center;gap:7px;background:var(--fire);border:none;color:#fff;padding:12px 24px;border-radius:var(--rs);font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;margin-bottom:22px;}
+.btn-inspect:hover{background:var(--fire-l);}
+.qr-bar{background:linear-gradient(90deg,var(--ash),rgba(45,40,37,.5));border:1px solid rgba(232,57,14,.2);border-radius:var(--r);padding:10px 16px;margin-bottom:18px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--fog);max-width:860px;margin-left:auto;margin-right:auto;}
+
+/* TIPO BADGE */
+.tipo-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:500;margin-bottom:14px;}
+.tb-extintor{background:rgba(232,57,14,.15);color:var(--fire-l);border:1px solid rgba(232,57,14,.2);}
+.tb-hidrante{background:rgba(55,138,221,.15);color:#85B7EB;border:1px solid rgba(55,138,221,.2);}
+.tb-traje{background:rgba(127,119,221,.15);color:#AFA9EC;border:1px solid rgba(127,119,221,.2);}
+.tb-camilla{background:rgba(45,158,107,.15);color:#5DCAA5;border:1px solid rgba(45,158,107,.2);}
+.tb-regadera{background:rgba(196,138,16,.15);color:#EF9F27;border:1px solid rgba(196,138,16,.2);}
+
+/* FORMULARIO */
+.form-wrap{max-width:700px;margin:0 auto;padding:26px 22px;}
+.fsec{margin-bottom:26px;}
+.fsec-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--fire-l);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid rgba(232,57,14,.2);}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.ff{display:flex;flex-direction:column;gap:5px;}
+.ff.full{grid-column:1/-1;}
+.fl{font-size:11px;font-weight:500;letter-spacing:.3px;color:var(--fog);text-transform:uppercase;}
+.fi,.fs,.ft{background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--rs);color:var(--white);padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color .2s;}
+.fi:focus,.fs:focus,.ft:focus{border-color:var(--fire);}
+.fs option{background:var(--ash);}
+.ft{resize:vertical;min-height:75px;}
+.rg{display:flex;gap:7px;flex-wrap:wrap;}
+.ro{display:flex;align-items:center;gap:5px;background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--rs);padding:8px 12px;cursor:pointer;font-size:13px;transition:all .2s;}
+.ro:has(input:checked){border-color:var(--fire);background:rgba(232,57,14,.12);color:var(--fire-l);}
+.ro input{accent-color:var(--fire);}
+.upload-area{border:2px dashed rgba(255,255,255,.15);border-radius:var(--r);padding:24px;text-align:center;cursor:pointer;grid-column:1/-1;}
+.upload-area:hover{border-color:var(--fire);}
+.prev-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.prev-img{width:70px;height:52px;object-fit:cover;border-radius:5px;}
+.form-btns{display:flex;gap:10px;margin-top:12px;}
+.btn-cancel{flex:1;padding:13px;background:none;border:1px solid rgba(255,255,255,.15);border-radius:var(--rs);color:var(--fog);font-family:'Syne',sans-serif;font-size:14px;font-weight:600;cursor:pointer;}
+.btn-save{flex:2;padding:13px;background:var(--fire);border:none;border-radius:var(--rs);color:#fff;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;}
+.btn-save:hover{background:var(--fire-l);}
+.suc-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:50vh;text-align:center;padding:40px;}
+.suc-ico{font-size:56px;margin-bottom:16px;}
+.suc-title{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;margin-bottom:8px;color:#5DCAA5;}
+.suc-sub{color:var(--mist);font-size:14px;margin-bottom:22px;}
+.empty{text-align:center;padding:36px;color:var(--mist);font-size:13px;}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);color:#fff;padding:12px 20px;border-radius:var(--r);font-weight:500;font-size:14px;z-index:9999;transition:transform .4s cubic-bezier(.16,1,.3,1);white-space:nowrap;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+@media(max-width:600px){.fgrid{grid-template-columns:1fr;}.ficha-hdr{flex-direction:column;}.fstatus{margin-left:0;}.navbar{padding:0 14px;}.main{padding:18px 14px;}.nav-tabs{display:none;}}
+</style>
+</head>
+<body>
+
+<div class="loader-overlay" id="loader"><div class="spinner"></div><div style="font-size:13px;color:var(--fog)">Cargando...</div></div>
+<div class="toast" id="toast"></div>
+
+<!-- LOGIN -->
+<div class="view active" id="vLogin">
+  <div class="login-bg"></div>
+  <div class="login-card">
+    <div class="logo"><div class="logo-icon">🔥</div><div class="logo-name">AS <span>Industrial</span></div></div>
+    <h2>Acceso al portal</h2>
+    <div class="sub">Solo personal autorizado y clientes registrados</div>
+    <div class="err" id="loginErr"></div>
+    <div class="field"><label>Correo electrónico</label><input type="email" id="inEmail" placeholder="correo@empresa.com"></div>
+    <div class="field"><label>Contraseña</label><input type="password" id="inPass" placeholder="••••••••"></div>
+    <button class="btn-fire" onclick="doLogin()">Ingresar</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="view" id="vApp" style="flex-direction:column;">
+  <nav class="navbar">
+    <div class="nav-logo">AS <span>Industrial</span></div>
+    <div class="nav-tabs">
+      <button class="tab active" id="tDash" onclick="goTab('dash')">Dashboard</button>
+      <button class="tab" id="tEquipos" onclick="goTab('equipos')">Equipos</button>
+      <button class="tab" id="tAdmin" style="display:none" onclick="goTab('admin')">Administrar</button>
+    </div>
+    <div class="nav-r">
+      <div class="avatar" id="navAv">U</div>
+      <div style="font-size:13px" id="navName">Usuario</div>
+      <div class="rbadge" id="navRole">-</div>
+      <button class="btn-out" onclick="doLogout()">Salir</button>
+    </div>
+  </nav>
+
+  <!-- DASHBOARD -->
+  <div id="pDash" class="main" style="display:block">
+    <div class="pg-title">Panel de control</div>
+    <div class="pg-sub" id="dashSub">Bienvenido</div>
+    <div class="stats">
+      <div class="stat"><div class="stat-l">Total equipos</div><div class="stat-v c-fire" id="sTot">—</div></div>
+      <div class="stat"><div class="stat-l">OK</div><div class="stat-v c-ok" id="sOk">—</div></div>
+      <div class="stat"><div class="stat-l">Observación</div><div class="stat-v c-warn" id="sWarn">—</div></div>
+      <div class="stat"><div class="stat-l">Crítico</div><div class="stat-v c-ng" id="sCrit">—</div></div>
+    </div>
+    <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">
+      <div class="stat"><div class="stat-l">🧯 Extintores</div><div class="stat-v" style="font-size:22px" id="sCntExt">—</div></div>
+      <div class="stat"><div class="stat-l">🚒 Hidrantes</div><div class="stat-v" style="font-size:22px" id="sCntHid">—</div></div>
+      <div class="stat"><div class="stat-l">🧥 Trajes</div><div class="stat-v" style="font-size:22px" id="sCntTrj">—</div></div>
+      <div class="stat"><div class="stat-l">🛏 Camillas</div><div class="stat-v" style="font-size:22px" id="sCntCam">—</div></div>
+      <div class="stat"><div class="stat-l">🚿 Regaderas</div><div class="stat-v" style="font-size:22px" id="sCntReg">—</div></div>
+    </div>
+    <div class="sec-title">Equipos recientes</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>No. Serie</th><th>Área</th><th>Tipo</th><th>Cliente</th><th>Estado</th><th></th></tr></thead>
+      <tbody id="tbDash"></tbody>
+    </table></div>
+  </div>
+
+  <!-- EQUIPOS -->
+  <div id="pEquipos" style="display:none;flex:1;">
+    <div class="main">
+      <div class="pg-title">Equipos registrados</div>
+      <div class="pg-sub">Selecciona un equipo para ver su ficha o registrar una inspección</div>
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+        <select class="fi" id="filtroTipo" onchange="loadEquipos()" style="width:auto;padding:9px 14px;">
+          <option value="">Todos los tipos</option>
+          <option value="extintor">🧯 Extintores</option>
+          <option value="hidrante">🚒 Hidrantes</option>
+          <option value="traje_bomberos">🧥 Trajes Bomberos</option>
+          <option value="camilla">🛏 Camillas</option>
+          <option value="regadera">🚿 Regaderas/Lavaojos</option>
+        </select>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>No. Serie</th><th>Área</th><th>Tipo</th><th>Cliente</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="tbEquipos"></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- FICHA -->
+  <div id="pFicha" style="display:none;flex:1;">
+    <div class="ficha-hero">
+      <div class="qr-bar" style="max-width:860px;margin-left:auto;margin-right:auto;margin-bottom:16px;">
+        <span>📷</span><span>Ficha — <strong id="fichaUrl" style="color:var(--fire-l)"></strong></span>
+      </div>
+      <div class="ficha-hdr">
+        <div class="ficha-ico" id="fichaIco">🔥</div>
+        <div style="flex:1">
+          <div class="ficha-id" id="fichaSerie">—</div>
+          <div class="ficha-nm" id="fichaNombre">—</div>
+          <div class="ficha-ar" id="fichaArea">—</div>
+        </div>
+        <div class="fstatus fs-ok" id="fichaStatus">—</div>
+      </div>
+    </div>
+    <div class="ficha-body">
+      <div id="fichaTipoBadge"></div>
+      <div class="info-grid" id="fichaInfoGrid"></div>
+      <div class="sec-title">Estado de componentes</div>
+      <div class="chk-grid" id="fichaChklist"></div>
+      <div class="sec-title">Observaciones</div>
+      <div class="obs-box" id="fichaObs">Sin observaciones.</div>
+      <div class="sec-title">Historial</div>
+      <div class="hist-list" id="fichaHist"></div>
+      <div id="btnInspWrap">
+        <button class="btn-inspect" onclick="goTab('form')">📋 Registrar inspección</button>
+      </div>
+      <button class="btn-s" onclick="goTab('equipos')" style="margin-bottom:24px;">← Volver</button>
+    </div>
+  </div>
+
+  <!-- FORMULARIO (dinámico por tipo) -->
+  <div id="pForm" style="display:none;flex:1;">
+    <div class="form-wrap">
+      <button class="btn-s" onclick="goTab('ficha')" style="margin-bottom:14px;">← Volver</button>
+      <div class="pg-title" id="formTitle">Inspección mensual</div>
+      <div class="pg-sub" id="formSub">—</div>
+      <div id="formSuccess" style="display:none">
+        <div class="suc-screen">
+          <div class="suc-ico">✅</div>
+          <div class="suc-title">¡Inspección guardada!</div>
+          <div class="suc-sub">Los datos fueron registrados correctamente.</div>
+          <button class="btn-inspect" onclick="goTab('ficha')" style="font-size:13px;padding:11px 22px;">Ver ficha</button>
+        </div>
+      </div>
+      <div id="formMain"></div>
+    </div>
+  </div>
+
+  <!-- ADMIN -->
+  <div id="pAdmin" style="display:none;flex:1;">
+    <div class="main">
+      <div class="pg-title">Administración</div>
+      <div class="pg-sub">Gestiona equipos y accesos del sistema</div>
+      <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
+        <button class="btn-s fire" onclick="toggleAddForm()">+ Nuevo equipo</button>
+        <button class="btn-s" onclick="loadAdminTable()">↺ Actualizar</button>
+      </div>
+      <div id="addEquipoForm" style="display:none;background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:22px;margin-bottom:20px;">
+        <div class="sec-title" style="margin-bottom:14px;">Nuevo equipo</div>
+        <div class="fgrid">
+          <div class="ff"><label class="fl">No. de serie</label><input class="fi" id="aSerie" placeholder="EXT-001"/></div>
+          <div class="ff"><label class="fl">Área / Departamento</label><input class="fi" id="aArea" placeholder="Planta Baja"/></div>
+          <div class="ff"><label class="fl">Tipo de equipo</label>
+            <select class="fs" id="aTipo">
+              <option value="extintor">🧯 Extintor</option>
+              <option value="hidrante">🚒 Hidrante</option>
+              <option value="traje_bomberos">🧥 Traje Bomberos</option>
+              <option value="camilla">🛏 Camilla</option>
+              <option value="regadera">🚿 Regadera / Lavaojos</option>
+            </select>
+          </div>
+          <div class="ff"><label class="fl">Subtipo / Capacidad</label><input class="fi" id="aSubtipo" placeholder="PQS 9kg / Tipo II / Rígida..."/></div>
+          <div class="ff"><label class="fl">Marca</label><input class="fi" id="aMarca" placeholder="Amerex, Kidde..."/></div>
+          <div class="ff"><label class="fl">Cliente</label>
+            <select class="fs" id="aCliente"><option value="">— Sin cliente —</option></select>
+          </div>
+          <div class="ff"><label class="fl">Próxima revisión</label><input class="fi" type="date" id="aProxRev"/></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:14px;">
+          <button class="btn-cancel" style="flex:0;padding:10px 18px;" onclick="toggleAddForm()">Cancelar</button>
+          <button class="btn-save" style="flex:0;padding:10px 20px;" onclick="saveEquipo()">Guardar</button>
+        </div>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>No. Serie</th><th>Área</th><th>Tipo</th><th>Cliente</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <tbody id="tbAdmin"></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPA_URL = 'https://aidawdimcqxuqgcurrfb.supabase.co';
+const SUPA_KEY = 'sb_publishable_WDwZrSdH3P1MvJeobpfb0Q_33cmbnrn';
+const { createClient } = supabase;
+const db = createClient(SUPA_URL, SUPA_KEY);
+
+let currentUser = null, currentPerfil = null, currentEquipo = null;
+
+// ── TIPO CONFIG ──
+const TIPOS = {
+  extintor:       { label: 'Extintor',          icon: '🧯', badge: 'tb-extintor',  tabla: 'insp_extintores' },
+  hidrante:       { label: 'Hidrante',           icon: '🚒', badge: 'tb-hidrante',  tabla: 'insp_hidrantes' },
+  traje_bomberos: { label: 'Traje Bomberos',     icon: '🧥', badge: 'tb-traje',     tabla: 'insp_traje_bomberos' },
+  camilla:        { label: 'Camilla',            icon: '🛏', badge: 'tb-camilla',   tabla: 'insp_camillas' },
+  regadera:       { label: 'Regadera/Lavaojos',  icon: '🚿', badge: 'tb-regadera',  tabla: 'insp_regaderas' },
+};
+
+// ── AUTH ──
+async function init() {
+  loader(true);
+  const { data: { session } } = await db.auth.getSession();
+  if (session) { await loadPerfil(session.user); showApp(); }
+  loader(false);
+}
+
+async function doLogin() {
+  const email = document.getElementById('inEmail').value.trim();
+  const pass  = document.getElementById('inPass').value;
+  const err   = document.getElementById('loginErr');
+  err.style.display = 'none';
+  loader(true);
+  const { data, error } = await db.auth.signInWithPassword({ email, password: pass });
+  loader(false);
+  if (error) { err.textContent = 'Correo o contraseña incorrectos.'; err.style.display = 'block'; return; }
+  await loadPerfil(data.user);
+  showApp();
+}
+
+async function loadPerfil(user) {
+  currentUser = user;
+  const { data } = await db.from('perfiles').select('*').eq('id', user.id).single();
+  currentPerfil = data;
+}
+
+async function doLogout() {
+  await db.auth.signOut();
+  currentUser = null; currentPerfil = null;
+  document.getElementById('vApp').style.display = 'none';
+  document.getElementById('vLogin').style.display = 'flex';
+  document.getElementById('vLogin').classList.add('active');
+}
+
+function showApp() {
+  document.getElementById('vLogin').style.display = 'none';
+  const app = document.getElementById('vApp');
+  app.style.display = 'flex'; app.classList.add('active');
+  const p = currentPerfil;
+  if (!p) return;
+  document.getElementById('navName').textContent = p.nombre;
+  document.getElementById('navAv').textContent = p.nombre.charAt(0).toUpperCase();
+  const rb = document.getElementById('navRole');
+  rb.textContent = p.rol; rb.className = 'rbadge r-' + p.rol;
+  document.getElementById('tAdmin').style.display = p.rol === 'admin' ? 'block' : 'none';
+  document.getElementById('btnInspWrap').style.display = p.rol === 'cliente' ? 'none' : 'block';
+  document.getElementById('dashSub').textContent =
+    'Bienvenido, ' + p.nombre + ' — ' + new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  goTab('dash');
+  loadDashboard();
+}
+
+// ── NAVEGACIÓN ──
+const PAGES = ['Dash','Equipos','Ficha','Form','Admin'];
+function goTab(tab) {
+  PAGES.forEach(p => {
+    const el = document.getElementById('p'+p); if(el) el.style.display='none';
+    const tb = document.getElementById('t'+p); if(tb) tb.classList.remove('active');
+  });
+  const T = tab.charAt(0).toUpperCase()+tab.slice(1);
+  const el = document.getElementById('p'+T); if(el) el.style.display='flex';
+  const tb = document.getElementById('t'+T); if(tb) tb.classList.add('active');
+  if(tab==='equipos') loadEquipos();
+  if(tab==='admin')   { loadAdminTable(); loadClientesSelect(); }
+  if(tab==='form' && currentEquipo) renderForm();
+}
+
+// ── DASHBOARD ──
+async function loadDashboard() {
+  const { data: equipos } = await db.from('equipos').select('id,tipo').eq('activo',true);
+  const tot = equipos?.length||0;
+  document.getElementById('sTot').textContent = tot;
+  const tipos = ['extintor','hidrante','traje_bomberos','camilla','regadera'];
+  const ids = {'extintor':'sCntExt','hidrante':'sCntHid','traje_bomberos':'sCntTrj','camilla':'sCntCam','regadera':'sCntReg'};
+  tipos.forEach(t => {
+    const cnt = equipos?.filter(e=>e.tipo===t).length||0;
+    document.getElementById(ids[t]).textContent = cnt;
+  });
+  // Últimas inspecciones de todas las tablas
+  const { data: eq } = await db.from('equipos').select('id,no_serie,area,tipo,clientes(nombre)').eq('activo',true).order('created_at',{ascending:false}).limit(10);
+  document.getElementById('sOk').textContent = '—';
+  document.getElementById('sWarn').textContent = '—';
+  document.getElementById('sCrit').textContent = '—';
+  const tbody = document.getElementById('tbDash');
+  if (!eq?.length) { tbody.innerHTML='<tr><td colspan="6" class="empty">Sin equipos aún</td></tr>'; return; }
+  tbody.innerHTML = eq.map(e => {
+    const t = TIPOS[e.tipo]||{icon:'🔧',label:e.tipo};
+    return `<tr>
+      <td style="font-weight:500">${e.no_serie}</td>
+      <td>${e.area}</td>
+      <td>${t.icon} ${t.label}</td>
+      <td>${e.clientes?.nombre||'—'}</td>
+      <td><span class="badge b-ok">Activo</span></td>
+      <td><button class="btn-s fire" onclick='verFicha(${JSON.stringify(e)})'>Ver</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── EQUIPOS ──
+async function loadEquipos() {
+  loader(true);
+  const filtro = document.getElementById('filtroTipo')?.value;
+  let q = db.from('equipos').select('*,clientes(nombre)').eq('activo',true).order('tipo').order('no_serie');
+  if (filtro) q = q.eq('tipo', filtro);
+  const { data } = await q;
+  loader(false);
+  const tbody = document.getElementById('tbEquipos');
+  if (!data?.length) { tbody.innerHTML='<tr><td colspan="6" class="empty">No hay equipos registrados</td></tr>'; return; }
+  tbody.innerHTML = data.map(e => {
+    const t = TIPOS[e.tipo]||{icon:'🔧',label:e.tipo};
+    return `<tr>
+      <td style="font-weight:500">${e.no_serie}</td>
+      <td>${e.area}</td>
+      <td>${t.icon} ${t.label}</td>
+      <td>${e.clientes?.nombre||'—'}</td>
+      <td><span class="badge b-ok">Activo</span></td>
+      <td><button class="btn-s fire" onclick='verFicha(${JSON.stringify(e)})'>Ver ficha</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── FICHA ──
+async function verFicha(equipo) {
+  currentEquipo = equipo;
+  const t = TIPOS[equipo.tipo]||{icon:'🔧',label:equipo.tipo,badge:'',tabla:'inspecciones'};
+  document.getElementById('fichaIco').textContent = t.icon;
+  document.getElementById('fichaSerie').textContent = equipo.no_serie + ' · ' + t.label;
+  document.getElementById('fichaNombre').textContent = (equipo.subtipo||t.label) + ' — ' + equipo.area;
+  document.getElementById('fichaArea').textContent = '📍 ' + equipo.area + (equipo.departamento?' · '+equipo.departamento:'');
+  document.getElementById('fichaUrl').textContent = 'portal.asindustrial.mx/equipo/'+equipo.id;
+  document.getElementById('fichaTipoBadge').innerHTML = `<span class="tipo-badge ${t.badge}">${t.icon} ${t.label}</span>`;
+  document.getElementById('fichaInfoGrid').innerHTML = [
+    ['No. de serie', equipo.no_serie],
+    ['Marca', equipo.marca||'—'],
+    ['Subtipo', equipo.subtipo||'—'],
+    ['Última revisión', equipo.fecha_ultima_revision||'—'],
+    ['Próxima revisión', equipo.fecha_proxima_revision||'—'],
+    ['Cliente', equipo.clientes?.nombre||'—'],
+  ].map(([l,v])=>`<div class="ic"><div class="ic-l">${l}</div><div class="ic-v">${v}</div></div>`).join('');
+
+  // Cargar historial según tipo
+  const tabla = t.tabla;
+  const { data: inspList } = await db.from(tabla).select('*').eq('equipo_id',equipo.id).order('fecha_inspeccion',{ascending:false});
+
+  if (inspList?.length) {
+    const last = inspList[0];
+    const statusEl = document.getElementById('fichaStatus');
+    if(last.estado==='ok'){statusEl.textContent='✓ Vigente';statusEl.className='fstatus fs-ok';}
+    else if(last.estado==='observacion'){statusEl.textContent='⚠ Observación';statusEl.className='fstatus fs-warn';}
+    else{statusEl.textContent='✗ Crítico';statusEl.className='fstatus fs-ng';}
+    document.getElementById('fichaChklist').innerHTML = buildChecklist(equipo.tipo, last);
+    document.getElementById('fichaObs').textContent = last.observaciones||'Sin observaciones.';
+    document.getElementById('fichaHist').innerHTML = inspList.map(i=>{
+      const b = i.estado==='ok'?'b-ok':i.estado==='observacion'?'b-warn':'b-ng';
+      const tx = i.estado==='ok'?'✓ OK':i.estado==='observacion'?'⚠ Observación':'✗ Crítico';
+      return `<div class="hist-i"><div class="hist-d">${i.fecha_inspeccion}</div><div class="hist-t">Téc. ${i.tecnico_nombre||'—'}</div><span class="badge ${b}">${tx}</span></div>`;
+    }).join('');
+  } else {
+    document.getElementById('fichaStatus').textContent='Sin inspecciones';
+    document.getElementById('fichaStatus').className='fstatus fs-warn';
+    document.getElementById('fichaChklist').innerHTML='<div class="empty" style="grid-column:1/-1">Sin inspecciones aún</div>';
+    document.getElementById('fichaObs').textContent='Sin observaciones.';
+    document.getElementById('fichaHist').innerHTML='<div class="empty">Sin historial</div>';
+  }
+  goTab('ficha');
+}
+
+function buildChecklist(tipo, last) {
+  let checks = [];
+  if(tipo==='extintor') checks=[
+    ['Accesible',last.accesible],['Señalizado',last.senalizado],['Carga',last.carga],
+    ['Manguera/Boquilla',last.manguera_boquilla],['Seguro/Cola de rata',last.seguro_cola_rata],
+    ['Cilindro',last.cilindro],['Collarín',last.estado_collarin],['Llantas',last.estado_llantas],
+    ['Tarjeta inspección',last.tarjeta_inspeccion],['Altura NOM-002',last.altura_nom002],
+    ['Delimitado',last.delimitado],
+  ];
+  else if(tipo==='hidrante') checks=[
+    ['Accesible',last.accesible],['Señalizado',last.senalizado],['Gabinete',last.gabinete],
+    ['Manguera',last.manguera],['Chiflón',last.chiflon],['Coples',last.coples],
+    ['Espuma',last.espuma],['Instrucciones',last.instrucciones],['Válvula',last.valvula],
+    ['Delimitado',last.delimitado],
+  ];
+  else if(tipo==='traje_bomberos') checks=[
+    ['Accesible',last.accesible],['Señalizado',last.senalizado],['Gabinete',last.gabinete],
+    ['Casco',last.casco],['Pantalón',last.pantalon],['Chaquetón',last.chaqueton],
+    ['Monja',last.monja],['Botas',last.botas],['Guantes',last.guantes],
+    ['SCBA',last.scba],['SCBA cargado',last.cargado_scba],['Delimitado',last.delimitado],
+  ];
+  else if(tipo==='camilla') checks=[
+    ['Accesible',last.accesible],['Señalizada',last.senalizada],['Gabinete',last.gabinete],
+    ['Funda',last.funda],['Sujeción',last.sujecion],['Estado',last.estado_camilla],
+    ['Inmovilización',last.inmovilizacion],['Araña',last.arana],['Pulpo',last.pulpo],
+    ['Delimitado',last.delimitado],
+  ];
+  else if(tipo==='regadera') checks=[
+    ['Accesible',last.accesible],['Señalizada',last.senalizada],['Nivel agua',last.nivel_agua],
+    ['Velocidad chorro',last.velocidad_chorro],['Sin contaminantes',last.libre_contaminantes],
+    ['Altura adecuada',last.altura_adecuada],['Posición',last.posicion],
+    ['Difusor',last.difusor],['Rociadores',last.estado_rociadores],
+    ['Tapón rociadores',last.tapon_rociadores],['Agua en buen estado',last.agua_buen_estado],
+    ['Delimitado',last.delimitado],
+  ];
+  return checks.map(([l,v])=>{
+    const na = !v||v==='N/A'||v==='na';
+    const ng = !na&&(v==='NO'||v==='no'||v==='DAÑADO'||v==='dañado'||v==='DAÑADA'||v==='dañada'||v.startsWith('NO'));
+    const cls = na?'ci-na':ng?'ci-ng':'ci-ok';
+    const ico = na?'—':ng?'✗':'✓';
+    return `<div class="chk"><div class="chk-i ${cls}">${ico}</div>${l}: <strong style="margin-left:4px">${v||'—'}</strong></div>`;
+  }).join('');
+}
+
+// ── FORMULARIO DINÁMICO ──
+function renderForm() {
+  const e = currentEquipo;
+  const t = TIPOS[e.tipo]||{icon:'🔧',label:e.tipo};
+  document.getElementById('formTitle').textContent = `Inspección — ${t.icon} ${t.label}`;
+  document.getElementById('formSub').textContent = e.no_serie + ' · ' + e.area + ' · ' + new Date().toLocaleDateString('es-MX');
+  document.getElementById('formSuccess').style.display = 'none';
+
+  const comunes = `
+    <div class="fsec">
+      <div class="fsec-title">Datos generales</div>
+      <div class="fgrid">
+        <div class="ff"><label class="fl">Área</label><input class="fi" id="fArea" value="${e.area||''}"/></div>
+        <div class="ff"><label class="fl">No. de serie</label><input class="fi" id="fSerie" value="${e.no_serie||''}" readonly style="opacity:.6"/></div>
+        <div class="ff"><label class="fl">Marca</label><input class="fi" id="fMarca" value="${e.marca||''}"/></div>
+        <div class="ff"><label class="fl">Fecha de revisión</label><input class="fi" type="date" id="fFecha" value="${new Date().toISOString().split('T')[0]}"/></div>
+      </div>
+    </div>`;
+
+  const fotos = `
+    <div class="fsec">
+      <div class="fsec-title">Fotografías</div>
+      <div class="fgrid">
+        <div class="upload-area" onclick="document.getElementById('fFiles').click()">
+          <div style="font-size:26px;margin-bottom:8px">📷</div>
+          <div style="font-size:13px;color:var(--mist)">Toca para agregar fotos</div>
+          <div class="prev-grid" id="prevGrid"></div>
+        </div>
+        <input type="file" id="fFiles" multiple accept="image/*" style="display:none" onchange="previewFiles(this)">
+      </div>
+    </div>`;
+
+  const tecnico = `
+    <div class="fsec">
+      <div class="fsec-title">Técnico y resultado</div>
+      <div class="fgrid">
+        <div class="ff"><label class="fl">Nombre del técnico</label><input class="fi" id="fTecNombre" value="${currentPerfil?.nombre||''}"/></div>
+        <div class="ff"><label class="fl">No. empleado</label><input class="fi" id="fTecNum" placeholder="EMP-XXX"/></div>
+        <div class="ff full"><label class="fl">Estado general</label>
+          <div class="rg">
+            <label class="ro"><input type="radio" name="est" value="ok" checked> ✓ OK</label>
+            <label class="ro"><input type="radio" name="est" value="observacion"> ⚠ Observación</label>
+            <label class="ro"><input type="radio" name="est" value="critico"> ✗ Crítico</label>
+          </div>
+        </div>
+        <div class="ff full"><label class="fl">Observaciones</label><textarea class="ft" id="fObs" placeholder="Describe el estado, anomalías, acciones recomendadas..."></textarea></div>
+      </div>
+    </div>`;
+
+  let campos = '';
+
+  if (e.tipo === 'extintor') {
+    campos = `
+    <div class="fsec"><div class="fsec-title">Datos del extintor</div><div class="fgrid">
+      <div class="ff"><label class="fl">Tipo extintor</label>
+        <select class="fs" id="fTipoExt"><option>PQS ABC</option><option>CO2</option><option>Agua</option><option>Espuma</option><option>Halón</option><option>K</option></select>
+      </div>
+      <div class="ff"><label class="fl">Capacidad</label><input class="fi" id="fCapacidad" placeholder="9 kg, 4.5 kg..."/></div>
+      <div class="ff"><label class="fl">Fecha de fabricación</label><input class="fi" type="date" id="fFabricacion"/></div>
+      <div class="ff"><label class="fl">Fecha de carga</label><input class="fi" id="fFechaCarga" placeholder="ENE 2025"/></div>
+      <div class="ff"><label class="fl">Fecha de vencimiento</label><input class="fi" id="fFechaVenc" placeholder="ENE 2026"/></div>
+      <div class="ff"><label class="fl">Prueba hidrostática</label><input class="fi" id="fPruebaHidro" placeholder="MAR 2021"/></div>
+      <div class="ff"><label class="fl">Peso CO2 (solo CO2)</label><input class="fi" id="fPesoCO2" placeholder="12.5 KG"/></div>
+    </div></div>
+    <div class="fsec"><div class="fsec-title">Condiciones</div><div class="fgrid">
+      ${radio('Accesible','acc',['SI','NO'])}
+      ${radio('Señalizado','sen',['SI','NO','DAÑADO'])}
+      ${radio('Gabinete','gab',['OK','N/A'])}
+      ${radio('Carga','carga',['OK','BAJA'])}
+      ${radio('Manguera / Boquilla','man',['OK','DAÑADA','N/A'])}
+      ${radio('Seguro y cola de rata','seg',['SI','NO'])}
+      ${radio('Cilindro','cil',['OK','DAÑADO'])}
+      ${radio('Estado collarín','col',['OK','DAÑADO'])}
+      ${radio('Estado llantas','lla',['OK','DAÑADO','N/A'])}
+      ${radio('Tarjeta de inspección','tarj',['OK','NO'])}
+      ${radio('Altura NOM-002','nom',['SI','NO'])}
+      ${radio('Área delimitada','del',['SI','NO','N/A'])}
+    </div></div>`;
+  } else if (e.tipo === 'hidrante') {
+    campos = `
+    <div class="fsec"><div class="fsec-title">Datos del hidrante</div><div class="fgrid">
+      <div class="ff"><label class="fl">Tipo hidrante</label><input class="fi" id="fTipoHid" placeholder="Hidrante 1 1/2 x 30 mts"/></div>
+      <div class="ff"><label class="fl">Prueba hidrostática</label><input class="fi" id="fPruebaHidro" placeholder="2023-03"/></div>
+    </div></div>
+    <div class="fsec"><div class="fsec-title">Condiciones</div><div class="fgrid">
+      ${radio('Accesible','acc',['SI','NO'])}
+      ${radio('Señalizado','sen',['SI','NO','DAÑADO'])}
+      ${radio('Gabinete','gab',['OK','DAÑADO','N/A'])}
+      ${radio('Manguera','man',['OK','DAÑADA'])}
+      ${radio('Chiflón','chi',['OK','DAÑADO','NO ESTÁ'])}
+      ${radio('Coples','cop',['SI','NO'])}
+      ${radio('Espuma','esp',['OK','DAÑADO','N/A'])}
+      ${radio('Instrucciones','ins',['SI','NO'])}
+      ${radio('Válvula','val',['SI','DAÑADA'])}
+      ${radio('Área delimitada','del',['SI','NO','N/A'])}
+    </div></div>`;
+  } else if (e.tipo === 'traje_bomberos') {
+    campos = `
+    <div class="fsec"><div class="fsec-title">Datos del equipo</div><div class="fgrid">
+      <div class="ff"><label class="fl">Tipo de equipo</label>
+        <select class="fs" id="fTipoBom"><option>Equipo en planta</option><option>Equipo portátil</option></select>
+      </div>
+    </div></div>
+    <div class="fsec"><div class="fsec-title">Condiciones</div><div class="fgrid">
+      ${radio('Accesible','acc',['SI','NO'])}
+      ${radio('Señalizado','sen',['SI','NO'])}
+      ${radio('Gabinete','gab',['OK','DAÑADO','N/A'])}
+      ${radio('Casco','cas',['SI','NO'])}
+      ${radio('Pantalón','pan',['SI','NO'])}
+      ${radio('Chaquetón','chq',['SI','NO'])}
+      ${radio('Monja','mon',['SI','NO'])}
+      ${radio('Botas','bot',['SI','NO'])}
+      ${radio('Guantes','gua',['SI','NO'])}
+      ${radio('SCBA','scb',['SI','NO'])}
+      ${radio('Estado general','eqest',['BUENO','REGULAR','MALO'])}
+      ${radio('SCBA cargado','scbc',['SI','NO'])}
+      ${radio('Área delimitada','del',['SI','NO','N/A'])}
+    </div></div>`;
+  } else if (e.tipo === 'camilla') {
+    campos = `
+    <div class="fsec"><div class="fsec-title">Datos de la camilla</div><div class="fgrid">
+      <div class="ff"><label class="fl">Tipo de camilla</label>
+        <select class="fs" id="fTipoCam"><option>Camilla rígida</option><option>Camilla flexible</option><option>Camilla cuchara</option></select>
+      </div>
+    </div></div>
+    <div class="fsec"><div class="fsec-title">Condiciones</div><div class="fgrid">
+      ${radio('Accesible','acc',['SI','NO'])}
+      ${radio('Señalizada','sen',['SI','NO','DAÑADO'])}
+      ${radio('Gabinete','gab',['OK','DAÑADO','N/A'])}
+      ${radio('Funda','fun',['OK','NO ESTÁ','N/A'])}
+      ${radio('Sujeción','suj',['BUENO','DAÑADO'])}
+      ${radio('Estado camilla','estc',['OK','SUCIO','DAÑADO'])}
+      ${radio('Inmovilización','inm',['OK','NO'])}
+      ${radio('Araña','ara',['OK','NO ESTÁ','N/A'])}
+      ${radio('Pulpo','pul',['OK','NO ESTÁ','N/A'])}
+      ${radio('Área delimitada','del',['SI','NO','N/A'])}
+    </div></div>`;
+  } else if (e.tipo === 'regadera') {
+    campos = `
+    <div class="fsec"><div class="fsec-title">Datos de la regadera</div><div class="fgrid">
+      <div class="ff"><label class="fl">Tipo de regadera</label>
+        <select class="fs" id="fTipoReg">
+          <option>Regadera acero galvanizado</option>
+          <option>Regadera de recubrimiento plástico</option>
+          <option>Regadera c/lavaojos acero galvanizado</option>
+          <option>Lavaojos portátil</option>
+          <option>Lavaojos fijo</option>
+        </select>
+      </div>
+    </div></div>
+    <div class="fsec"><div class="fsec-title">Condiciones</div><div class="fgrid">
+      ${radio('Accesible','acc',['SI','NO'])}
+      ${radio('Señalizada','sen',['SI','NO','DAÑADO'])}
+      ${radio('Nivel de agua','niv',['SI','NO','BAJA PRESION'])}
+      ${radio('Velocidad de chorro','vel',['SI','NO','BAJA PRESION'])}
+      ${radio('Libre de contaminantes','con',['SI','NO'])}
+      ${radio('Altura adecuada (83-114cm)','alt',['OK','NO'])}
+      ${radio('Posición','pos',['OK','DAÑADA'])}
+      ${radio('Difusor','dif',['OK','DAÑADO','NO ESTÁ'])}
+      ${radio('Estado rociadores','roc',['OK','DAÑADO'])}
+      ${radio('Tapón rociadores','tap',['SI','NO'])}
+      ${radio('Agua en buen estado','agua',['SI','NO'])}
+      ${radio('Área delimitada','del',['SI','NO','N/A'])}
+    </div></div>`;
+  }
+
+  document.getElementById('formMain').innerHTML = comunes + campos + fotos + tecnico +
+    `<div class="form-btns">
+      <button class="btn-cancel" onclick="goTab('ficha')">Cancelar</button>
+      <button class="btn-save" onclick="saveInspection()">Guardar inspección ✓</button>
+    </div>`;
+}
+
+function radio(label, name, opts) {
+  const first = opts[0];
+  return `<div class="ff"><label class="fl">${label}</label><div class="rg">
+    ${opts.map((o,i)=>`<label class="ro"><input type="radio" name="${name}" value="${o}"${i===0?' checked':''}> ${o}</label>`).join('')}
+  </div></div>`;
+}
+
+// ── GUARDAR INSPECCIÓN ──
+async function saveInspection() {
+  if (!currentEquipo) return;
+  const getR = n => document.querySelector(`input[name="${n}"]:checked`)?.value||null;
+  const getV = id => { const el=document.getElementById(id); return el?el.value:null; };
+  const fecha = getV('fFecha');
+  let payload = {
+    equipo_id: currentEquipo.id,
+    tecnico_id: currentUser?.id||null,
+    tecnico_nombre: getV('fTecNombre'),
+    tecnico_numero: getV('fTecNum'),
+    fecha_inspeccion: fecha,
+    area: getV('fArea'),
+    no_serie: getV('fSerie'),
+    marca: getV('fMarca'),
+    estado: getR('est')||'ok',
+    observaciones: getV('fObs'),
+  };
+  const tipo = currentEquipo.tipo;
+  const tabla = TIPOS[tipo]?.tabla||'inspecciones';
+
+  if (tipo==='extintor') Object.assign(payload,{
+    tipo_extintor: getV('fTipoExt'), capacidad: getV('fCapacidad'),
+    fecha_carga: getV('fFechaCarga'), fecha_vencimiento: getV('fFechaVenc'),
+    prueba_hidrostatica: getV('fPruebaHidro'), peso_co2: getV('fPesoCO2'),
+    accesible:getR('acc'), senalizado:getR('sen'), gabinete:getR('gab'),
+    carga:getR('carga'), manguera_boquilla:getR('man'), seguro_cola_rata:getR('seg'),
+    cilindro:getR('cil'), estado_collarin:getR('col'), estado_llantas:getR('lla'),
+    tarjeta_inspeccion:getR('tarj'), altura_nom002:getR('nom'), delimitado:getR('del'),
+  });
+  else if (tipo==='hidrante') Object.assign(payload,{
+    tipo_hidrante:getV('fTipoHid'), prueba_hidrostatica:getV('fPruebaHidro'),
+    accesible:getR('acc'), senalizado:getR('sen'), gabinete:getR('gab'),
+    manguera:getR('man'), chiflon:getR('chi'), coples:getR('cop'),
+    espuma:getR('esp'), instrucciones:getR('ins'), valvula:getR('val'), delimitado:getR('del'),
+  });
+  else if (tipo==='traje_bomberos') Object.assign(payload,{
+    tipo_bombero:getV('fTipoBom'),
+    accesible:getR('acc'), senalizado:getR('sen'), gabinete:getR('gab'),
+    casco:getR('cas'), pantalon:getR('pan'), chaqueton:getR('chq'),
+    monja:getR('mon'), botas:getR('bot'), guantes:getR('gua'),
+    scba:getR('scb'), estado_equipo:getR('eqest'), cargado_scba:getR('scbc'), delimitado:getR('del'),
+  });
+  else if (tipo==='camilla') Object.assign(payload,{
+    tipo_camilla:getV('fTipoCam'),
+    accesible:getR('acc'), senalizada:getR('sen'), gabinete:getR('gab'),
+    funda:getR('fun'), sujecion:getR('suj'), estado_camilla:getR('estc'),
+    inmovilizacion:getR('inm'), arana:getR('ara'), pulpo:getR('pul'), delimitado:getR('del'),
+  });
+  else if (tipo==='regadera') Object.assign(payload,{
+    tipo_regadera:getV('fTipoReg'),
+    accesible:getR('acc'), senalizada:getR('sen'), nivel_agua:getR('niv'),
+    velocidad_chorro:getR('vel'), libre_contaminantes:getR('con'),
+    altura_adecuada:getR('alt'), posicion:getR('pos'), difusor:getR('dif'),
+    estado_rociadores:getR('roc'), tapon_rociadores:getR('tap'),
+    agua_buen_estado:getR('agua'), delimitado:getR('del'),
+  });
+
+  loader(true);
+  const { error } = await db.from(tabla).insert(payload);
+  if (error) { loader(false); showToast('❌ Error: '+error.message, true); return; }
+  await db.from('equipos').update({ fecha_ultima_revision: fecha }).eq('id', currentEquipo.id);
+  loader(false);
+  document.getElementById('formMain').style.display = 'none';
+  document.getElementById('formSuccess').style.display = 'flex';
+  showToast('✅ Inspección guardada correctamente');
+}
+
+// ── ADMIN ──
+async function loadAdminTable() {
+  const { data } = await db.from('equipos').select('*,clientes(nombre)').order('tipo').order('no_serie');
+  const tbody = document.getElementById('tbAdmin');
+  if (!data?.length) { tbody.innerHTML='<tr><td colspan="6" class="empty">Sin equipos</td></tr>'; return; }
+  tbody.innerHTML = data.map(e => {
+    const t = TIPOS[e.tipo]||{icon:'🔧',label:e.tipo};
+    return `<tr>
+      <td style="font-weight:500">${e.no_serie}</td>
+      <td>${e.area}</td>
+      <td>${t.icon} ${t.label}</td>
+      <td>${e.clientes?.nombre||'—'}</td>
+      <td><span class="badge b-ok">Activo</span></td>
+      <td>
+        <button class="btn-s fire" onclick='verFicha(${JSON.stringify(e)})'>Ver</button>
+        <button class="btn-s" onclick="printQR('${e.id}','${e.no_serie}')">QR</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadClientesSelect() {
+  const { data } = await db.from('clientes').select('id,nombre').eq('activo',true);
+  const sel = document.getElementById('aCliente');
+  if (!data) return;
+  sel.innerHTML = '<option value="">— Sin cliente —</option>' + data.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+}
+
+function toggleAddForm() {
+  const f = document.getElementById('addEquipoForm');
+  f.style.display = f.style.display==='none' ? 'block' : 'none';
+}
+
+async function saveEquipo() {
+  const payload = {
+    no_serie:  document.getElementById('aSerie').value.trim(),
+    area:      document.getElementById('aArea').value.trim(),
+    tipo:      document.getElementById('aTipo').value,
+    subtipo:   document.getElementById('aSubtipo').value.trim(),
+    marca:     document.getElementById('aMarca').value.trim(),
+    cliente_id:document.getElementById('aCliente').value||null,
+    fecha_proxima_revision: document.getElementById('aProxRev').value||null,
+  };
+  if (!payload.no_serie||!payload.area) { showToast('⚠ No. serie y Área son obligatorios', true); return; }
+  loader(true);
+  const { error } = await db.from('equipos').insert(payload);
+  loader(false);
+  if (error) { showToast('❌ Error: '+error.message, true); return; }
+  showToast('✅ Equipo guardado');
+  toggleAddForm();
+  loadAdminTable();
+}
+
+function printQR(id, serie) {
+  const url = `https://portal.asindustrial.mx/equipo/${id}`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(url)}`;
+  const win = window.open('','_blank');
+  win.document.write(`<html><head><title>QR - ${serie}</title><style>
+    body{font-family:sans-serif;text-align:center;padding:40px;}
+    h2{margin-bottom:4px;font-size:18px;} p{color:#666;font-size:13px;margin-bottom:18px;}
+    img{border:1px solid #ddd;padding:14px;border-radius:8px;}
+    .url{font-size:10px;color:#999;margin-top:10px;word-break:break-all;}
+    button{margin-top:18px;padding:10px 24px;background:#E8390E;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;}
+  </style></head><body>
+    <h2>AS Industrial</h2><p>Equipo: <strong>${serie}</strong></p>
+    <img src="${qrUrl}" width="260" height="260"/>
+    <div class="url">${url}</div>
+    <br><button onclick="window.print()">Imprimir QR</button>
+  </body></html>`);
+}
+
+// ── UTILIDADES ──
+function previewFiles(input) {
+  const g = document.getElementById('prevGrid');
+  Array.from(input.files).forEach(f => {
+    const r = new FileReader();
+    r.onload = e => { const i=document.createElement('img'); i.src=e.target.result; i.className='prev-img'; g.appendChild(i); };
+    r.readAsDataURL(f);
+  });
+}
+function loader(show) { document.getElementById('loader').classList[show?'add':'remove']('show'); }
+function showToast(msg, isErr) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.background = isErr?'#C42B2B':'#2D9E6B';
+  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3500);
+}
+document.getElementById('inPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+init();
+</script>
+</body>
+</html>
