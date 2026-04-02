@@ -467,7 +467,7 @@ async function loadPerfil(user) {
   currentPerfil = data;
 }
 
-async // ── REPORTES ──
+// ── REPORTES ──
 let reporteData = [];
 
 async function initReportes() {
@@ -615,7 +615,7 @@ function showApp() {
 }
 
 // ── NAVEGACIÓN ──
-const PAGES = ['Dash','Equipos','Ficha','Form','Admin','Reportes'];
+var PAGES = ['Dash','Equipos','Ficha','Form','Admin','Reportes'];
 function goTab(tab) {
   PAGES.forEach(p => {
     const el = document.getElementById('p'+p); if(el) el.style.display='none';
