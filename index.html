@@ -337,7 +337,11 @@ tbody td{padding:11px 15px;font-size:13px;}
         <div class="fgrid">
           <div class="ff">
             <label class="fl">Cliente</label>
-            <select class="fs" id="rCliente"><option value="">— Todos los clientes —</option></select>
+            <select class="fs" id="rCliente" onchange="loadPlantasSelect(this.value,'rPlanta')"><option value="">— Todos los clientes —</option></select>
+          </div>
+          <div class="ff">
+            <label class="fl">Planta</label>
+            <select class="fs" id="rPlanta"><option value="">— Todas las plantas —</option></select>
           </div>
           <div class="ff">
             <label class="fl">Mes</label>
@@ -406,7 +410,10 @@ tbody td{padding:11px 15px;font-size:13px;}
           <div class="ff"><label class="fl">Subtipo / Capacidad</label><input class="fi" id="aSubtipo" placeholder="PQS 9kg / Tipo II / Rígida..."/></div>
           <div class="ff"><label class="fl">Marca</label><input class="fi" id="aMarca" placeholder="Amerex, Kidde..."/></div>
           <div class="ff"><label class="fl">Cliente</label>
-            <select class="fs" id="aCliente"><option value="">— Sin cliente —</option></select>
+            <select class="fs" id="aCliente" onchange="loadPlantasSelect(this.value,'aPlanta')"><option value="">— Sin cliente —</option></select>
+          </div>
+          <div class="ff"><label class="fl">Planta</label>
+            <select class="fs" id="aPlanta"><option value="">— Sin planta —</option></select>
           </div>
           <div class="ff"><label class="fl">Próxima revisión</label><input class="fi" type="date" id="aProxRev"/></div>
         </div>
@@ -416,11 +423,35 @@ tbody td{padding:11px 15px;font-size:13px;}
         </div>
       </div>
       <div class="tbl-wrap"><table>
-        <thead><tr><th>No. Serie</th><th>Área</th><th>Tipo</th><th>Cliente</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <thead><tr><th>No. Serie</th><th>Área</th><th>Tipo</th><th>Cliente</th><th>Planta</th><th>Estado</th><th>Acciones</th></tr></thead>
         <tbody id="tbAdmin"></tbody>
       </table></div>
-    </div>
-  </div>
+
+      <!-- Gestión de Plantas -->
+      <div style="margin-top:28px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div class="sec-title" style="margin:0">Plantas por cliente</div>
+          <button class="btn-s fire" onclick="toggleAddPlanta()">+ Nueva planta</button>
+        </div>
+        <div id="addPlantaForm" style="display:none;background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:20px;margin-bottom:16px;">
+          <div class="fgrid">
+            <div class="ff"><label class="fl">Cliente</label>
+              <select class="fs" id="pClienteId"><option value="">— Seleccionar —</option></select>
+            </div>
+            <div class="ff"><label class="fl">Nombre de la planta</label><input class="fi" id="pNombre" placeholder="Planta Escobedo"/></div>
+            <div class="ff"><label class="fl">Ciudad</label><input class="fi" id="pCiudad" placeholder="Escobedo, NL"/></div>
+            <div class="ff"><label class="fl">Contacto</label><input class="fi" id="pContacto" placeholder="Nombre del responsable"/></div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:14px;">
+            <button class="btn-cancel" style="flex:0;padding:10px 18px;" onclick="toggleAddPlanta()">Cancelar</button>
+            <button class="btn-save" style="flex:0;padding:10px 20px;" onclick="savePlanta()">Guardar planta</button>
+          </div>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Planta</th><th>Cliente</th><th>Ciudad</th><th>Contacto</th></tr></thead>
+          <tbody id="tbPlantas"></tbody>
+        </table></div>
+      </div>
 </div>
 
 <script>
@@ -470,21 +501,198 @@ async function loadPerfil(user) {
 // ── REPORTES ──
 let reporteData = [];
 
+// ── PLANTAS ──
+async function loadPlantasSelect(clienteId, selectId) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Sin planta —</option>';
+  if (!clienteId) return;
+  const { data } = await db.from('plantas').select('id,nombre').eq('cliente_id', clienteId).eq('activo', true);
+  if (data?.length) {
+    sel.innerHTML = '<option value="">— Sin planta —</option>' +
+      data.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+  }
+}
+
+async function loadPlantasAdmin() {
+  const { data } = await db.from('plantas').select('*,clientes(nombre)').eq('activo',true).order('created_at',{ascending:false});
+  const tbody = document.getElementById('tbPlantas');
+  if (!tbody) return;
+  if (!data?.length) { tbody.innerHTML='<tr><td colspan="4" class="empty">Sin plantas registradas</td></tr>'; return; }
+  tbody.innerHTML = data.map(p => `<tr>
+    <td style="font-weight:500">${p.nombre}</td>
+    <td>${p.clientes?.nombre||'—'}</td>
+    <td>${p.ciudad||'—'}</td>
+    <td>${p.contacto||'—'}</td>
+  </tr>`).join('');
+}
+
+function toggleAddPlanta() {
+  const f = document.getElementById('addPlantaForm');
+  f.style.display = f.style.display==='none' ? 'block' : 'none';
+  if (f.style.display==='block') {
+    // Cargar clientes en el select de plantas
+    db.from('clientes').select('id,nombre').eq('activo',true).then(({data}) => {
+      const sel = document.getElementById('pClienteId');
+      if (data) sel.innerHTML = '<option value="">— Seleccionar —</option>' +
+        data.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+    });
+  }
+}
+
+async function savePlanta() {
+  const payload = {
+    cliente_id: document.getElementById('pClienteId').value,
+    nombre:     document.getElementById('pNombre').value.trim(),
+    ciudad:     document.getElementById('pCiudad').value.trim(),
+    contacto:   document.getElementById('pContacto').value.trim(),
+  };
+  if (!payload.cliente_id || !payload.nombre) { showToast('⚠ Cliente y nombre son obligatorios', true); return; }
+  loader(true);
+  const { error } = await db.from('plantas').insert(payload);
+  loader(false);
+  if (error) { showToast('❌ Error: '+error.message, true); return; }
+  showToast('✅ Planta guardada');
+  toggleAddPlanta();
+  loadPlantasAdmin();
+}
+
+async function loadClientesSelect() {
+  const { data } = await db.from('clientes').select('id,nombre').eq('activo',true);
+  ['aCliente','pClienteId'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— Sin cliente —</option>' +
+      (data||[]).map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+  });
+}
+
+async function loadAdminTable() {
+  const { data } = await db.from('equipos').select('*,clientes(nombre),plantas(nombre)').order('tipo').order('no_serie');
+  const tbody = document.getElementById('tbAdmin');
+  if (!data?.length) { tbody.innerHTML='<tr><td colspan="7" class="empty">Sin equipos</td></tr>'; return; }
+  tbody.innerHTML = data.map(e => {
+    const t = TIPOS[e.tipo]||{icon:'🔧',label:e.tipo};
+    return `<tr>
+      <td style="font-weight:500">${e.no_serie}</td>
+      <td>${e.area}</td>
+      <td>${t.icon} ${t.label}</td>
+      <td>${e.clientes?.nombre||'—'}</td>
+      <td>${e.plantas?.nombre||'—'}</td>
+      <td><span class="badge b-ok">Activo</span></td>
+      <td>
+        <button class="btn-s fire" onclick='verFicha(${JSON.stringify(e)})'>Ver</button>
+        <button class="btn-s" onclick="printQR('${e.id}','${e.no_serie}')">QR</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function saveEquipo() {
+  const payload = {
+    no_serie:   document.getElementById('aSerie').value.trim(),
+    area:       document.getElementById('aArea').value.trim(),
+    tipo:       document.getElementById('aTipo').value,
+    subtipo:    document.getElementById('aSubtipo').value.trim(),
+    marca:      document.getElementById('aMarca').value.trim(),
+    cliente_id: document.getElementById('aCliente').value||null,
+    planta_id:  document.getElementById('aPlanta').value||null,
+    fecha_proxima_revision: document.getElementById('aProxRev').value||null,
+  };
+  if (!payload.no_serie||!payload.area) { showToast('⚠ No. serie y Área son obligatorios', true); return; }
+  loader(true);
+  const { error } = await db.from('equipos').insert(payload);
+  loader(false);
+  if (error) { showToast('❌ Error: '+error.message, true); return; }
+  showToast('✅ Equipo guardado');
+  toggleAddForm();
+  loadAdminTable();
+}
+
 async function initReportes() {
   const { data } = await db.from('clientes').select('id,nombre').eq('activo',true);
   const sel = document.getElementById('rCliente');
   if (!sel) return;
   sel.innerHTML = '<option value="">— Todos los clientes —</option>' +
     (data||[]).map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
-  // Mes actual por defecto
   const now = new Date();
   document.getElementById('rMes').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
 }
 
 async function buscarReporte() {
   const clienteId = document.getElementById('rCliente').value;
+  const plantaId  = document.getElementById('rPlanta')?.value || '';
   const mes       = document.getElementById('rMes').value;
   const tipo      = document.getElementById('rTipo').value;
+
+  loader(true);
+  reporteData = [];
+
+  const tablas = tipo ? [tipo] : ['extintor','hidrante','traje_bomberos','camilla','regadera'];
+  const tablaMap = {
+    extintor:'insp_extintores', hidrante:'insp_hidrantes',
+    traje_bomberos:'insp_traje_bomberos', camilla:'insp_camillas', regadera:'insp_regaderas'
+  };
+
+  for (const t of tablas) {
+    const tabla = tablaMap[t];
+    let q = db.from(tabla).select(`*, equipos(no_serie, area, tipo, subtipo, cliente_id, planta_id, clientes(nombre), plantas(nombre))`);
+    if (mes) {
+      const [y,m] = mes.split('-');
+      const inicio = `${y}-${m}-01`;
+      const fin    = `${y}-${m}-${new Date(y,m,0).getDate()}`;
+      q = q.gte('fecha_inspeccion', inicio).lte('fecha_inspeccion', fin);
+    }
+    const { data } = await q;
+    if (data?.length) {
+      const filtrado = data.filter(r => {
+        if (clienteId && r.equipos?.cliente_id !== clienteId) return false;
+        if (plantaId  && r.equipos?.planta_id  !== plantaId)  return false;
+        return true;
+      });
+      filtrado.forEach(r => { r._tipo = t; reporteData.push(r); });
+    }
+  }
+
+  loader(false);
+
+  if (!reporteData.length) {
+    document.getElementById('rResultados').style.display = 'none';
+    document.getElementById('rVacio').style.display = 'block';
+    return;
+  }
+
+  document.getElementById('rVacio').style.display = 'none';
+  document.getElementById('rResultados').style.display = 'block';
+  document.getElementById('rConteo').textContent = `${reporteData.length} inspecciones encontradas`;
+
+  const clienteNombre = document.getElementById('rCliente').options[document.getElementById('rCliente').selectedIndex].text;
+  const plantaNombre  = document.getElementById('rPlanta')?.options[document.getElementById('rPlanta')?.selectedIndex]?.text || '';
+  document.getElementById('rTitulo').textContent = `${reporteData.length} inspecciones — ${clienteNombre}${plantaNombre && plantaNombre!=='— Todas las plantas —' ? ' / '+plantaNombre : ''}`;
+
+  const thead = document.getElementById('rThead');
+  const tbody = document.getElementById('rTbody');
+  thead.innerHTML = `<tr>
+    <th>Fecha</th><th>No. Serie</th><th>Área</th><th>Tipo</th><th>Cliente</th><th>Planta</th>
+    <th>Técnico</th><th>Estado</th><th>Observaciones</th>
+  </tr>`;
+  tbody.innerHTML = reporteData.map(r => {
+    const t = TIPOS[r._tipo]||{icon:'',label:r._tipo};
+    const est = r.estado==='ok'?'✓ OK':r.estado==='observacion'?'⚠ Obs':'✗ Crítico';
+    const estColor = r.estado==='ok'?'var(--ok)':r.estado==='observacion'?'var(--warn)':'var(--ng)';
+    return `<tr>
+      <td>${r.fecha_inspeccion||'—'}</td>
+      <td style="font-weight:500">${r.equipos?.no_serie||'—'}</td>
+      <td>${r.equipos?.area||'—'}</td>
+      <td>${t.icon} ${t.label}</td>
+      <td>${r.equipos?.clientes?.nombre||'—'}</td>
+      <td>${r.equipos?.plantas?.nombre||'—'}</td>
+      <td>${r.tecnico_nombre||'—'}</td>
+      <td style="color:${estColor};font-weight:500">${est}</td>
+      <td style="max-width:200px;white-space:normal;font-size:12px">${r.observaciones||'—'}</td>
+    </tr>`;
+  }).join('');
+}
 
   loader(true);
   reporteData = [];
@@ -625,7 +833,7 @@ function goTab(tab) {
   const el = document.getElementById('p'+T); if(el) el.style.display='flex';
   const tb = document.getElementById('t'+T); if(tb) tb.classList.add('active');
   if(tab==='equipos') loadEquipos();
-  if(tab==='admin')   { loadAdminTable(); loadClientesSelect(); }
+  if(tab==='admin')   { loadAdminTable(); loadClientesSelect(); loadPlantasAdmin(); }
   if(tab==='reportes') initReportes();
   if(tab==='form' && currentEquipo) renderForm();
 }
@@ -1023,58 +1231,6 @@ async function saveInspection() {
 }
 
 // ── ADMIN ──
-async function loadAdminTable() {
-  const { data } = await db.from('equipos').select('*,clientes(nombre)').order('tipo').order('no_serie');
-  const tbody = document.getElementById('tbAdmin');
-  if (!data?.length) { tbody.innerHTML='<tr><td colspan="6" class="empty">Sin equipos</td></tr>'; return; }
-  tbody.innerHTML = data.map(e => {
-    const t = TIPOS[e.tipo]||{icon:'🔧',label:e.tipo};
-    return `<tr>
-      <td style="font-weight:500">${e.no_serie}</td>
-      <td>${e.area}</td>
-      <td>${t.icon} ${t.label}</td>
-      <td>${e.clientes?.nombre||'—'}</td>
-      <td><span class="badge b-ok">Activo</span></td>
-      <td>
-        <button class="btn-s fire" onclick='verFicha(${JSON.stringify(e)})'>Ver</button>
-        <button class="btn-s" onclick="printQR('${e.id}','${e.no_serie}')">QR</button>
-      </td>
-    </tr>`;
-  }).join('');
-}
-
-async function loadClientesSelect() {
-  const { data } = await db.from('clientes').select('id,nombre').eq('activo',true);
-  const sel = document.getElementById('aCliente');
-  if (!data) return;
-  sel.innerHTML = '<option value="">— Sin cliente —</option>' + data.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
-}
-
-function toggleAddForm() {
-  const f = document.getElementById('addEquipoForm');
-  f.style.display = f.style.display==='none' ? 'block' : 'none';
-}
-
-async function saveEquipo() {
-  const payload = {
-    no_serie:  document.getElementById('aSerie').value.trim(),
-    area:      document.getElementById('aArea').value.trim(),
-    tipo:      document.getElementById('aTipo').value,
-    subtipo:   document.getElementById('aSubtipo').value.trim(),
-    marca:     document.getElementById('aMarca').value.trim(),
-    cliente_id:document.getElementById('aCliente').value||null,
-    fecha_proxima_revision: document.getElementById('aProxRev').value||null,
-  };
-  if (!payload.no_serie||!payload.area) { showToast('⚠ No. serie y Área son obligatorios', true); return; }
-  loader(true);
-  const { error } = await db.from('equipos').insert(payload);
-  loader(false);
-  if (error) { showToast('❌ Error: '+error.message, true); return; }
-  showToast('✅ Equipo guardado');
-  toggleAddForm();
-  loadAdminTable();
-}
-
 function printQR(id, serie) {
   const url = `https://asindustrial-portal.vercel.app/equipo/${id}`;
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(url)}`;
