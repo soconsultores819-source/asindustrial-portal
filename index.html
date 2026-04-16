@@ -388,7 +388,35 @@ tbody td{padding:11px 15px;font-size:13px;}
   <div id="pAdmin" style="display:none;flex:1;">
     <div class="main">
       <div class="pg-title">Administración</div>
-      <div class="pg-sub">Gestiona equipos y accesos del sistema</div>
+      <div class="pg-sub">Gestiona clientes, plantas, equipos y usuarios del sistema</div>
+
+      <!-- SECCIÓN CLIENTES -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div class="sec-title" style="margin:0">Clientes</div>
+        <button class="btn-s fire" onclick="toggleAddCliente()">+ Nuevo cliente</button>
+      </div>
+      <div id="addClienteForm" style="display:none;background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:22px;margin-bottom:16px;">
+        <div class="sec-title" style="margin-bottom:14px;">Nuevo cliente</div>
+        <div class="fgrid">
+          <div class="ff"><label class="fl">Nombre de la empresa</label><input class="fi" id="cNombre" placeholder="Empresa S.A. de C.V."/></div>
+          <div class="ff"><label class="fl">Contacto</label><input class="fi" id="cContacto" placeholder="Nombre del responsable"/></div>
+          <div class="ff"><label class="fl">Teléfono</label><input class="fi" id="cTelefono" placeholder="81 1234 5678"/></div>
+          <div class="ff"><label class="fl">Correo</label><input class="fi" id="cCorreo" placeholder="contacto@empresa.com"/></div>
+          <div class="ff full"><label class="fl">Dirección</label><input class="fi" id="cDireccion" placeholder="Calle, Colonia, Ciudad"/></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:14px;">
+          <button class="btn-cancel" style="flex:0;padding:10px 18px;" onclick="toggleAddCliente()">Cancelar</button>
+          <button class="btn-save" style="flex:0;padding:10px 20px;" onclick="saveCliente()">Guardar cliente</button>
+        </div>
+      </div>
+      <div class="tbl-wrap" style="margin-bottom:28px;">
+        <table>
+          <thead><tr><th>Empresa</th><th>Contacto</th><th>Teléfono</th><th>Correo</th><th>Plantas</th></tr></thead>
+          <tbody id="tbClientes"></tbody>
+        </table>
+      </div>
+
+      <!-- SECCIÓN EQUIPOS -->
       <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
         <button class="btn-s fire" onclick="toggleAddForm()">+ Nuevo equipo</button>
         <button class="btn-s" onclick="loadAdminTable()">↺ Actualizar</button>
@@ -530,6 +558,48 @@ async function loadPlantasAdmin() {
 function toggleAddForm() {
   const f = document.getElementById('addEquipoForm');
   f.style.display = f.style.display==='none' ? 'block' : 'none';
+}
+
+function toggleAddCliente() {
+  const f = document.getElementById('addClienteForm');
+  f.style.display = f.style.display==='none' ? 'block' : 'none';
+}
+
+async function saveCliente() {
+  const payload = {
+    nombre:    document.getElementById('cNombre').value.trim(),
+    contacto:  document.getElementById('cContacto').value.trim(),
+    telefono:  document.getElementById('cTelefono').value.trim(),
+    correo:    document.getElementById('cCorreo').value.trim(),
+    direccion: document.getElementById('cDireccion').value.trim(),
+  };
+  if (!payload.nombre) { showToast('⚠ El nombre es obligatorio', true); return; }
+  loader(true);
+  const { error } = await db.from('clientes').insert(payload);
+  loader(false);
+  if (error) { showToast('❌ Error: '+error.message, true); return; }
+  showToast('✅ Cliente guardado');
+  toggleAddCliente();
+  loadClientesAdmin();
+  loadClientesSelect();
+}
+
+async function loadClientesAdmin() {
+  const { data } = await db.from('clientes').select('*').eq('activo',true).order('nombre');
+  const tbody = document.getElementById('tbClientes');
+  if (!tbody) return;
+  if (!data?.length) { tbody.innerHTML='<tr><td colspan="5" class="empty">Sin clientes registrados</td></tr>'; return; }
+  for (const c of data) {
+    const { count } = await db.from('plantas').select('*', {count:'exact',head:true}).eq('cliente_id',c.id);
+    c._plantas = count||0;
+  }
+  tbody.innerHTML = data.map(c=>`<tr>
+    <td style="font-weight:500">${c.nombre}</td>
+    <td>${c.contacto||'—'}</td>
+    <td>${c.telefono||'—'}</td>
+    <td>${c.correo||'—'}</td>
+    <td><span class="badge b-ok">${c._plantas} planta${c._plantas!==1?'s':''}</span></td>
+  </tr>`).join('');
 }
 
 function toggleAddPlanta() {
@@ -771,7 +841,7 @@ function goTab(tab) {
   const el = document.getElementById('p'+T); if(el) el.style.display='flex';
   const tb = document.getElementById('t'+T); if(tb) tb.classList.add('active');
   if(tab==='equipos') loadEquipos();
-  if(tab==='admin')   { loadAdminTable(); loadClientesSelect(); loadPlantasAdmin(); }
+  if(tab==='admin')   { loadAdminTable(); loadClientesSelect(); loadPlantasAdmin(); loadClientesAdmin(); }
   if(tab==='reportes') initReportes();
   if(tab==='form' && currentEquipo) renderForm();
 }
