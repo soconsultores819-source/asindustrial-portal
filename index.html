@@ -527,6 +527,11 @@ async function loadPlantasAdmin() {
   </tr>`).join('');
 }
 
+function toggleAddForm() {
+  const f = document.getElementById('addEquipoForm');
+  f.style.display = f.style.display==='none' ? 'block' : 'none';
+}
+
 function toggleAddPlanta() {
   const f = document.getElementById('addPlantaForm');
   f.style.display = f.style.display==='none' ? 'block' : 'none';
