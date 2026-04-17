@@ -1655,8 +1655,27 @@ async function saveInspection() {
   });
 
   loader(true);
-  const { error } = await db.from(tabla).insert(payload);
+  const { data: inspData, error } = await db.from(tabla).insert(payload).select().single();
   if (error) { loader(false); showToast('❌ Error: '+error.message, true); return; }
+
+  // Subir fotos y registrar en fotos_inspeccion
+  const files = document.getElementById('fFiles')?.files;
+  if (files && files.length > 0) {
+    for (const file of files) {
+      const ext = file.name.split('.').pop();
+      const path = `${currentEquipo.id}/${inspData.id}/${Date.now()}_${Math.random().toString(36).substr(2,6)}.${ext}`;
+      const { error: upErr } = await db.storage.from('inspecciones').upload(path, file, { upsert: true });
+      if (!upErr) {
+        await db.from('fotos_inspeccion').insert({
+          inspeccion_id: inspData.id,
+          storage_path: path,
+          descripcion: file.name,
+          tipo_inspeccion: tipo,
+        });
+      }
+    }
+  }
+
   await db.from('equipos').update({ fecha_ultima_revision: fecha }).eq('id', currentEquipo.id);
   loader(false);
   document.getElementById('formMain').style.display = 'none';
