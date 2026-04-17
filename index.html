@@ -715,7 +715,14 @@ function toggleAddUsuario() {
   const f = document.getElementById('addUsuarioForm');
   f.style.display = f.style.display==='none' ? 'block' : 'none';
   if (f.style.display==='block') {
-    loadClientesSelect();
+    // Cargar clientes en el select de usuarios
+    db.from('clientes').select('id,nombre').eq('activo',true).order('nombre').then(({data}) => {
+      const sel = document.getElementById('uCliente');
+      if (sel && data) {
+        sel.innerHTML = '<option value="">— Sin cliente —</option>' +
+          data.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+      }
+    });
     toggleUsuarioCliente();
   }
 }
