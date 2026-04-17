@@ -204,12 +204,38 @@ tbody td{padding:11px 15px;font-size:13px;}
   <div class="login-bg"></div>
   <div class="login-card">
     <div class="logo"><div class="logo-icon">🔥</div><div class="logo-name">AS <span>Industrial</span></div></div>
-    <h2>Acceso al portal</h2>
-    <div class="sub">Solo personal autorizado y clientes registrados</div>
-    <div class="err" id="loginErr"></div>
-    <div class="field"><label>Correo electrónico</label><input type="email" id="inEmail" placeholder="correo@empresa.com"></div>
-    <div class="field"><label>Contraseña</label><input type="password" id="inPass" placeholder="••••••••"></div>
-    <button class="btn-fire" onclick="doLogin()">Ingresar</button>
+
+    <!-- Panel login -->
+    <div id="panelLogin">
+      <h2>Acceso al portal</h2>
+      <div class="sub">Solo personal autorizado y clientes registrados</div>
+      <div class="err" id="loginErr"></div>
+      <div class="field"><label>Correo electrónico</label><input type="email" id="inEmail" placeholder="correo@empresa.com"></div>
+      <div class="field"><label>Contraseña</label><input type="password" id="inPass" placeholder="••••••••"></div>
+      <button class="btn-fire" onclick="doLogin()">Ingresar</button>
+      <div style="text-align:center;margin-top:16px;">
+        <button onclick="showResetPanel()" style="background:none;border:none;color:var(--mist);font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:underline;">
+          ¿Olvidaste tu contraseña?
+        </button>
+      </div>
+    </div>
+
+    <!-- Panel recuperar contraseña -->
+    <div id="panelReset" style="display:none;">
+      <h2>Recuperar contraseña</h2>
+      <div class="sub">Te enviaremos un enlace para restablecer tu contraseña</div>
+      <div class="err" id="resetErr"></div>
+      <div class="field"><label>Correo electrónico</label><input type="email" id="resetEmail" placeholder="correo@empresa.com"></div>
+      <button class="btn-fire" onclick="doReset()">Enviar enlace</button>
+      <div style="text-align:center;margin-top:16px;">
+        <button onclick="showLoginPanel()" style="background:none;border:none;color:var(--mist);font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:underline;">
+          ← Volver al login
+        </button>
+      </div>
+      <div id="resetOk" style="display:none;background:var(--ok-bg);color:var(--ok);border-radius:var(--rs);padding:12px 14px;font-size:13px;margin-top:12px;text-align:center;">
+        ✅ Correo enviado. Revisa tu bandeja de entrada.
+      </div>
+    </div>
   </div>
 </div>
 
@@ -224,8 +250,8 @@ tbody td{padding:11px 15px;font-size:13px;}
       <button class="tab" id="tAdmin" style="display:none" onclick="goTab('admin')">Administrar</button>    </div>
     <button class="hamburger" onclick="toggleMenu()" id="hamburgerBtn">☰</button>
     <div class="nav-r">
-      <div class="avatar" id="navAv">U</div>
-      <div style="font-size:13px" id="navName">Usuario</div>
+      <div class="avatar" id="navAv" onclick="goTab('perfil')" style="cursor:pointer;" title="Mi perfil">U</div>
+      <div style="font-size:13px;cursor:pointer;" id="navName" onclick="goTab('perfil')" title="Mi perfil">Usuario</div>
       <div class="rbadge" id="navRole">-</div>
       <button class="btn-out" onclick="doLogout()">Salir</button>
     </div>
@@ -237,7 +263,38 @@ tbody td{padding:11px 15px;font-size:13px;}
     <button class="m-tab" id="mEquipos" onclick="goTab('equipos');toggleMenu()">🔧 Equipos</button>
     <button class="m-tab" id="mReportes" onclick="goTab('reportes');toggleMenu()">📄 Reportes</button>
     <button class="m-tab" id="mAdmin" style="display:none" onclick="goTab('admin');toggleMenu()">⚙️ Administrar</button>
+    <button class="m-tab" onclick="goTab('perfil');toggleMenu()">👤 Mi perfil</button>
     <button class="m-tab" onclick="doLogout()" style="color:#F09595">🚪 Salir</button>
+  </div>
+
+  <!-- MI PERFIL -->
+  <div id="pPerfil" style="display:none;flex:1;align-items:center;justify-content:center;">
+    <div style="background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:24px;padding:40px;width:100%;max-width:480px;margin:24px;">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:28px;">
+        <div class="avatar" style="width:52px;height:52px;font-size:20px;" id="perfilAvatar">U</div>
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;" id="perfilNombre">—</div>
+          <div class="rbadge" id="perfilRol" style="margin-top:4px;">—</div>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid rgba(255,255,255,.08);padding-top:24px;">
+        <div class="sec-title" style="margin-bottom:18px;">Cambiar contraseña</div>
+        <div class="err" id="passErr"></div>
+        <div class="field"><label>Nueva contraseña</label><input type="password" id="newPass" placeholder="Mínimo 6 caracteres"></div>
+        <div class="field"><label>Confirmar contraseña</label><input type="password" id="confirmPass" placeholder="Repite la contraseña"></div>
+        <button class="btn-fire" onclick="changePassword()">Actualizar contraseña</button>
+        <div id="passOk" style="display:none;background:var(--ok-bg);color:var(--ok);border-radius:var(--rs);padding:12px;font-size:13px;margin-top:12px;text-align:center;">
+          ✅ Contraseña actualizada correctamente
+        </div>
+      </div>
+
+      <div style="margin-top:20px;text-align:center;">
+        <button onclick="goTab('dash')" style="background:none;border:none;color:var(--mist);font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:underline;">
+          ← Volver al dashboard
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- DASHBOARD -->
@@ -519,10 +576,12 @@ tbody td{padding:11px 15px;font-size:13px;}
         </div>
         <div id="addUsuarioForm" style="display:none;background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:22px;margin-bottom:16px;">
           <div class="sec-title" style="margin-bottom:14px;">Nuevo usuario</div>
+          <div style="background:rgba(55,138,221,.1);border:1px solid rgba(55,138,221,.2);border-radius:var(--rs);padding:12px;margin-bottom:16px;font-size:12px;color:#85B7EB;">
+            ℹ️ Primero crea el usuario en <strong>Supabase → Authentication → Users → Add user</strong>, luego pega el UUID aquí para asignarle su perfil y accesos.
+          </div>
           <div class="fgrid">
+            <div class="ff full"><label class="fl">UUID del usuario (de Supabase Auth)</label><input class="fi" id="uUID" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"/></div>
             <div class="ff"><label class="fl">Nombre completo</label><input class="fi" id="uNombre" placeholder="Juan Pérez"/></div>
-            <div class="ff"><label class="fl">Correo electrónico</label><input class="fi" id="uCorreo" type="email" placeholder="juan@empresa.com"/></div>
-            <div class="ff"><label class="fl">Contraseña temporal</label><input class="fi" id="uPassword" type="password" placeholder="Mínimo 6 caracteres"/></div>
             <div class="ff"><label class="fl">Rol</label>
               <select class="fs" id="uRol" onchange="toggleUsuarioCliente()">
                 <option value="tecnico">🔧 Técnico</option>
@@ -538,12 +597,9 @@ tbody td{padding:11px 15px;font-size:13px;}
             </div>
             <div class="ff"><label class="fl">No. empleado</label><input class="fi" id="uNumEmp" placeholder="EMP-001 (opcional)"/></div>
           </div>
-          <div style="background:rgba(232,57,14,.1);border:1px solid rgba(232,57,14,.2);border-radius:var(--rs);padding:12px;margin-top:14px;font-size:12px;color:var(--fire-l);">
-            ⚠️ El usuario recibirá un correo de verificación. Deberá confirmar su cuenta antes de iniciar sesión.
-          </div>
           <div style="display:flex;gap:10px;margin-top:14px;">
             <button class="btn-cancel" style="flex:0;padding:10px 18px;" onclick="toggleAddUsuario()">Cancelar</button>
-            <button class="btn-save" style="flex:0;padding:10px 20px;" onclick="saveUsuario()">Crear usuario</button>
+            <button class="btn-save" style="flex:0;padding:10px 20px;" onclick="saveUsuario()">Guardar perfil</button>
           </div>
         </div>
         <div class="tbl-wrap"><table>
@@ -735,30 +791,18 @@ function toggleUsuarioCliente() {
 }
 
 async function saveUsuario() {
+  const userId   = document.getElementById('uUID').value.trim();
   const nombre   = document.getElementById('uNombre').value.trim();
-  const correo   = document.getElementById('uCorreo').value.trim();
-  const password = document.getElementById('uPassword').value;
   const rol      = document.getElementById('uRol').value;
   const clienteId= document.getElementById('uCliente').value || null;
   const plantaId = document.getElementById('uPlanta').value || null;
   const numEmp   = document.getElementById('uNumEmp').value.trim();
 
-  if (!nombre || !correo || !password) { showToast('⚠ Nombre, correo y contraseña son obligatorios', true); return; }
-  if (password.length < 6) { showToast('⚠ La contraseña debe tener mínimo 6 caracteres', true); return; }
+  if (!userId || !nombre) { showToast('⚠ UUID y nombre son obligatorios', true); return; }
+  if (!/^[0-9a-f-]{36}$/.test(userId)) { showToast('⚠ El UUID no tiene el formato correcto', true); return; }
 
   loader(true);
-  // Crear usuario en Supabase Auth
-  const { data: authData, error: authErr } = await db.auth.admin
-    ? db.auth.admin.createUser({ email: correo, password, email_confirm: true })
-    : await db.auth.signUp({ email: correo, password });
-
-  if (authErr) { loader(false); showToast('❌ Error: '+authErr.message, true); return; }
-
-  const userId = authData?.user?.id;
-  if (!userId) { loader(false); showToast('❌ No se pudo obtener el ID del usuario', true); return; }
-
-  // Crear perfil
-  const { error: perfErr } = await db.from('perfiles').insert({
+  const { error } = await db.from('perfiles').insert({
     id: userId,
     nombre,
     rol,
@@ -766,10 +810,9 @@ async function saveUsuario() {
     planta_id:  rol === 'cliente' ? plantaId : null,
     numero_empleado: numEmp || null,
   });
-
   loader(false);
-  if (perfErr) { showToast('⚠ Usuario creado pero error en perfil: '+perfErr.message, true); return; }
-  showToast('✅ Usuario creado correctamente');
+  if (error) { showToast('❌ Error: '+error.message, true); return; }
+  showToast('✅ Perfil de usuario guardado correctamente');
   toggleAddUsuario();
   loadUsuariosAdmin();
 }
@@ -1001,6 +1044,76 @@ function exportarExcel() {
   showToast('✅ Archivo descargado — ábrelo con Excel');
 }
 
+// ── PERFIL Y CONTRASEÑA ──
+function loadPerfil_UI() {
+  if (!currentPerfil) return;
+  document.getElementById('perfilAvatar').textContent = currentPerfil.nombre.charAt(0).toUpperCase();
+  document.getElementById('perfilNombre').textContent = currentPerfil.nombre;
+  const rb = document.getElementById('perfilRol');
+  rb.textContent = currentPerfil.rol;
+  rb.className = 'rbadge r-' + currentPerfil.rol;
+  document.getElementById('passErr').style.display = 'none';
+  document.getElementById('passOk').style.display = 'none';
+  document.getElementById('newPass').value = '';
+  document.getElementById('confirmPass').value = '';
+}
+
+async function changePassword() {
+  const newPass     = document.getElementById('newPass').value;
+  const confirmPass = document.getElementById('confirmPass').value;
+  const errEl       = document.getElementById('passErr');
+  const okEl        = document.getElementById('passOk');
+  errEl.style.display = 'none';
+  okEl.style.display  = 'none';
+  if (newPass.length < 6) {
+    errEl.textContent = 'La contraseña debe tener mínimo 6 caracteres.';
+    errEl.style.display = 'block'; return;
+  }
+  if (newPass !== confirmPass) {
+    errEl.textContent = 'Las contraseñas no coinciden.';
+    errEl.style.display = 'block'; return;
+  }
+  loader(true);
+  const { error } = await db.auth.updateUser({ password: newPass });
+  loader(false);
+  if (error) {
+    errEl.textContent = 'Error: ' + error.message;
+    errEl.style.display = 'block'; return;
+  }
+  okEl.style.display = 'block';
+  document.getElementById('newPass').value = '';
+  document.getElementById('confirmPass').value = '';
+}
+
+// ── RECUPERAR CONTRASEÑA (login) ──
+function showResetPanel() {
+  document.getElementById('panelLogin').style.display = 'none';
+  document.getElementById('panelReset').style.display = 'block';
+  document.getElementById('resetErr').style.display   = 'none';
+  document.getElementById('resetOk').style.display    = 'none';
+}
+
+function showLoginPanel() {
+  document.getElementById('panelReset').style.display = 'none';
+  document.getElementById('panelLogin').style.display = 'block';
+}
+
+async function doReset() {
+  const email = document.getElementById('resetEmail').value.trim();
+  const errEl = document.getElementById('resetErr');
+  const okEl  = document.getElementById('resetOk');
+  errEl.style.display = 'none';
+  okEl.style.display  = 'none';
+  if (!email) { errEl.textContent = 'Ingresa tu correo.'; errEl.style.display='block'; return; }
+  loader(true);
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: 'https://asindustrial-portal.vercel.app'
+  });
+  loader(false);
+  if (error) { errEl.textContent = 'Error: '+error.message; errEl.style.display='block'; return; }
+  okEl.style.display = 'block';
+}
+
 async function doLogout() {
   await db.auth.signOut();
   currentUser = null; currentPerfil = null;
@@ -1029,7 +1142,7 @@ function showApp() {
 }
 
 // ── NAVEGACIÓN ──
-var PAGES = ['Dash','Equipos','Ficha','Form','Admin','Reportes'];
+var PAGES = ['Dash','Equipos','Ficha','Form','Admin','Reportes','Perfil'];
 function goTab(tab) {
   PAGES.forEach(p => {
     const el = document.getElementById('p'+p); if(el) el.style.display='none';
@@ -1042,6 +1155,7 @@ function goTab(tab) {
   if(tab==='admin')   { loadAdminTable(); loadClientesSelect(); loadPlantasAdmin(); loadClientesAdmin(); loadUsuariosAdmin(); }
   if(tab==='reportes') initReportes();
   if(tab==='form' && currentEquipo) renderForm();
+  if(tab==='perfil') loadPerfil_UI();
 }
 
 // ── DASHBOARD ──
