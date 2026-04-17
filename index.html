@@ -177,11 +177,20 @@ tbody td{padding:11px 15px;font-size:13px;}
   .ficha-hdr{flex-direction:column;}
   .fstatus{margin-left:0;}
   .navbar{padding:0 14px;}
-  .main{padding:18px 14px;}
+  .main{padding:16px 12px;}
   .nav-tabs{display:none !important;}
   .hamburger{display:block !important;}
   .nav-r #navName,.nav-r .rbadge{display:none;}
   .btn-out{display:none;}
+  .pg-title{font-size:18px;}
+  .pg-sub{font-size:12px;margin-bottom:16px;}
+  .stats{grid-template-columns:1fr 1fr !important;gap:10px;margin-bottom:14px;}
+  .stat{padding:14px;}
+  .stat-v{font-size:24px;}
+  .tbl-wrap{overflow-x:auto;}
+  .sec-title{font-size:13px;}
+  .info-grid{grid-template-columns:1fr 1fr;}
+  .chk-grid{grid-template-columns:1fr 1fr;}
 }
 </style>
 </head>
@@ -233,15 +242,17 @@ tbody td{padding:11px 15px;font-size:13px;}
 
   <!-- DASHBOARD -->
   <div id="pDash" class="main" style="display:block">
-    <div class="pg-title">Panel de control</div>
-    <div class="pg-sub" id="dashSub">Bienvenido</div>
+    <div style="margin-bottom:20px;">
+      <div class="pg-title">Panel de control</div>
+      <div class="pg-sub" id="dashSub">Bienvenido</div>
+    </div>
     <div class="stats">
       <div class="stat"><div class="stat-l">Total equipos</div><div class="stat-v c-fire" id="sTot">—</div></div>
       <div class="stat"><div class="stat-l">OK</div><div class="stat-v c-ok" id="sOk">—</div></div>
       <div class="stat"><div class="stat-l">Observación</div><div class="stat-v c-warn" id="sWarn">—</div></div>
       <div class="stat"><div class="stat-l">Crítico</div><div class="stat-v c-ng" id="sCrit">—</div></div>
     </div>
-    <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">
+    <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))">
       <div class="stat"><div class="stat-l">🧯 Extintores</div><div class="stat-v" style="font-size:22px" id="sCntExt">—</div></div>
       <div class="stat"><div class="stat-l">🚒 Hidrantes</div><div class="stat-v" style="font-size:22px" id="sCntHid">—</div></div>
       <div class="stat"><div class="stat-l">🧥 Trajes</div><div class="stat-v" style="font-size:22px" id="sCntTrj">—</div></div>
@@ -250,7 +261,7 @@ tbody td{padding:11px 15px;font-size:13px;}
     </div>
     <div class="sec-title">Equipos recientes</div>
     <div class="tbl-wrap"><table>
-      <thead><tr><th>No. Serie</th><th>Área</th><th>Tipo</th><th>Cliente</th><th>Estado</th><th></th></tr></thead>
+      <thead><tr><th>No. Serie</th><th>Área</th><th>Tipo</th><th>Estado</th><th></th></tr></thead>
       <tbody id="tbDash"></tbody>
     </table></div>
   </div>
@@ -499,7 +510,50 @@ tbody td{padding:11px 15px;font-size:13px;}
           <tbody id="tbPlantas"></tbody>
         </table></div>
       </div>
-</div>
+
+      <!-- USUARIOS -->
+      <div style="margin-top:28px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div class="sec-title" style="margin:0">Usuarios del sistema</div>
+          <button class="btn-s fire" onclick="toggleAddUsuario()">+ Nuevo usuario</button>
+        </div>
+        <div id="addUsuarioForm" style="display:none;background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:22px;margin-bottom:16px;">
+          <div class="sec-title" style="margin-bottom:14px;">Nuevo usuario</div>
+          <div class="fgrid">
+            <div class="ff"><label class="fl">Nombre completo</label><input class="fi" id="uNombre" placeholder="Juan Pérez"/></div>
+            <div class="ff"><label class="fl">Correo electrónico</label><input class="fi" id="uCorreo" type="email" placeholder="juan@empresa.com"/></div>
+            <div class="ff"><label class="fl">Contraseña temporal</label><input class="fi" id="uPassword" type="password" placeholder="Mínimo 6 caracteres"/></div>
+            <div class="ff"><label class="fl">Rol</label>
+              <select class="fs" id="uRol" onchange="toggleUsuarioCliente()">
+                <option value="tecnico">🔧 Técnico</option>
+                <option value="cliente">👤 Cliente</option>
+                <option value="admin">⚙️ Administrador</option>
+              </select>
+            </div>
+            <div class="ff" id="uClienteWrap"><label class="fl">Cliente</label>
+              <select class="fs" id="uCliente" onchange="loadPlantasSelect(this.value,'uPlanta')"><option value="">— Sin cliente —</option></select>
+            </div>
+            <div class="ff" id="uPlantaWrap"><label class="fl">Planta (solo para rol cliente)</label>
+              <select class="fs" id="uPlanta"><option value="">— Sin planta específica —</option></select>
+            </div>
+            <div class="ff"><label class="fl">No. empleado</label><input class="fi" id="uNumEmp" placeholder="EMP-001 (opcional)"/></div>
+          </div>
+          <div style="background:rgba(232,57,14,.1);border:1px solid rgba(232,57,14,.2);border-radius:var(--rs);padding:12px;margin-top:14px;font-size:12px;color:var(--fire-l);">
+            ⚠️ El usuario recibirá un correo de verificación. Deberá confirmar su cuenta antes de iniciar sesión.
+          </div>
+          <div style="display:flex;gap:10px;margin-top:14px;">
+            <button class="btn-cancel" style="flex:0;padding:10px 18px;" onclick="toggleAddUsuario()">Cancelar</button>
+            <button class="btn-save" style="flex:0;padding:10px 20px;" onclick="saveUsuario()">Crear usuario</button>
+          </div>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Cliente</th><th>Planta</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <tbody id="tbUsuarios"></tbody>
+        </table></div>
+      </div>
+
+    </div>
+  </div>
 
 <script>
 const SUPA_URL = 'https://aidawdimcqxuqgcurrfb.supabase.co';
@@ -654,6 +708,89 @@ async function updateCliente() {
   closeEditCliente();
   loadClientesAdmin();
   loadClientesSelect();
+}
+
+// ── USUARIOS ──
+function toggleAddUsuario() {
+  const f = document.getElementById('addUsuarioForm');
+  f.style.display = f.style.display==='none' ? 'block' : 'none';
+  if (f.style.display==='block') {
+    loadClientesSelect();
+    toggleUsuarioCliente();
+  }
+}
+
+function toggleUsuarioCliente() {
+  const rol = document.getElementById('uRol').value;
+  const show = rol === 'cliente' || rol === 'tecnico';
+  document.getElementById('uClienteWrap').style.display = show ? 'flex' : 'none';
+  document.getElementById('uPlantaWrap').style.display = rol === 'cliente' ? 'flex' : 'none';
+}
+
+async function saveUsuario() {
+  const nombre   = document.getElementById('uNombre').value.trim();
+  const correo   = document.getElementById('uCorreo').value.trim();
+  const password = document.getElementById('uPassword').value;
+  const rol      = document.getElementById('uRol').value;
+  const clienteId= document.getElementById('uCliente').value || null;
+  const plantaId = document.getElementById('uPlanta').value || null;
+  const numEmp   = document.getElementById('uNumEmp').value.trim();
+
+  if (!nombre || !correo || !password) { showToast('⚠ Nombre, correo y contraseña son obligatorios', true); return; }
+  if (password.length < 6) { showToast('⚠ La contraseña debe tener mínimo 6 caracteres', true); return; }
+
+  loader(true);
+  // Crear usuario en Supabase Auth
+  const { data: authData, error: authErr } = await db.auth.admin
+    ? db.auth.admin.createUser({ email: correo, password, email_confirm: true })
+    : await db.auth.signUp({ email: correo, password });
+
+  if (authErr) { loader(false); showToast('❌ Error: '+authErr.message, true); return; }
+
+  const userId = authData?.user?.id;
+  if (!userId) { loader(false); showToast('❌ No se pudo obtener el ID del usuario', true); return; }
+
+  // Crear perfil
+  const { error: perfErr } = await db.from('perfiles').insert({
+    id: userId,
+    nombre,
+    rol,
+    cliente_id: clienteId,
+    planta_id:  rol === 'cliente' ? plantaId : null,
+    numero_empleado: numEmp || null,
+  });
+
+  loader(false);
+  if (perfErr) { showToast('⚠ Usuario creado pero error en perfil: '+perfErr.message, true); return; }
+  showToast('✅ Usuario creado correctamente');
+  toggleAddUsuario();
+  loadUsuariosAdmin();
+}
+
+async function loadUsuariosAdmin() {
+  const { data } = await db.from('perfiles')
+    .select('*, clientes(nombre), plantas(nombre)')
+    .order('created_at', { ascending: false });
+  const tbody = document.getElementById('tbUsuarios');
+  if (!tbody) return;
+  if (!data?.length) { tbody.innerHTML='<tr><td colspan="7" class="empty">Sin usuarios registrados</td></tr>'; return; }
+  tbody.innerHTML = data.map(u => {
+    const rolColor = u.rol==='admin'?'r-admin':u.rol==='tecnico'?'r-tecnico':'r-cliente';
+    const rolIcon  = u.rol==='admin'?'⚙️':u.rol==='tecnico'?'🔧':'👤';
+    return `<tr>
+      <td style="font-weight:500">${u.nombre}</td>
+      <td style="font-size:12px;color:var(--mist)">${u.id.substring(0,8)}...</td>
+      <td><span class="rbadge ${rolColor}">${rolIcon} ${u.rol}</span></td>
+      <td>${u.clientes?.nombre||'—'}</td>
+      <td>${u.plantas?.nombre||'—'}</td>
+      <td><span class="badge b-ok">Activo</span></td>
+      <td><button class="btn-s" onclick='editUsuario(${JSON.stringify(u)})'>✏️ Editar</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function editUsuario(u) {
+  showToast('Función de edición próximamente', false);
 }
 
 function toggleAddPlanta() {
@@ -895,7 +1032,7 @@ function goTab(tab) {
   const el = document.getElementById('p'+T); if(el) el.style.display='flex';
   const tb = document.getElementById('t'+T); if(tb) tb.classList.add('active');
   if(tab==='equipos') loadEquipos();
-  if(tab==='admin')   { loadAdminTable(); loadClientesSelect(); loadPlantasAdmin(); loadClientesAdmin(); }
+  if(tab==='admin')   { loadAdminTable(); loadClientesSelect(); loadPlantasAdmin(); loadClientesAdmin(); loadUsuariosAdmin(); }
   if(tab==='reportes') initReportes();
   if(tab==='form' && currentEquipo) renderForm();
 }
