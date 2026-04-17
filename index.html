@@ -966,7 +966,13 @@ async function buscarReporte() {
         if (plantaId  && r.equipos?.planta_id  !== plantaId)  return false;
         return true;
       });
-      filtrado.forEach(r => { r._tipo = t; reporteData.push(r); });
+      for (const r of filtrado) {
+        r._tipo = t;
+        // Cargar fotos de esta inspección
+        const { data: fotos } = await db.from('fotos_inspeccion').select('storage_path').eq('inspeccion_id', r.id);
+        r._fotos = fotos || [];
+        reporteData.push(r);
+      }
     }
   }
 
@@ -1013,25 +1019,133 @@ async function buscarReporte() {
 function exportarExcel() {
   if (!reporteData.length) return;
 
-  // Construir CSV con BOM para Excel en español
   const BOM = '\uFEFF';
-  const headers = ['Fecha','No. Serie','Área','Tipo','Cliente','Técnico','Estado','Observaciones'];
+  const SUPA_STORAGE = 'https://aidawdimcqxuqgcurrfb.supabase.co/storage/v1/object/public/inspecciones/';
+
+  // Campos comunes + campos específicos por tipo
+  const getCampos = (r) => {
+    const t = r._tipo;
+    if (t==='extintor') return {
+      'Tipo Extintor': r.tipo_extintor||'',
+      'Capacidad': r.capacidad||'',
+      'Fecha Carga': r.fecha_carga||'',
+      'Fecha Vencimiento': r.fecha_vencimiento||'',
+      'Prueba Hidrostática': r.prueba_hidrostatica||'',
+      'Accesible': r.accesible||'',
+      'Señalizado': r.senalizado||'',
+      'Gabinete': r.gabinete||'',
+      'Carga': r.carga||'',
+      'Manguera/Boquilla': r.manguera_boquilla||'',
+      'Seguro/Cola de rata': r.seguro_cola_rata||'',
+      'Cilindro': r.cilindro||'',
+      'Collarín': r.estado_collarin||'',
+      'Llantas': r.estado_llantas||'',
+      'Tarjeta Inspección': r.tarjeta_inspeccion||'',
+      'Altura NOM-002': r.altura_nom002||'',
+      'Peso CO2': r.peso_co2||'',
+      'Delimitado': r.delimitado||'',
+    };
+    if (t==='hidrante') return {
+      'Tipo Hidrante': r.tipo_hidrante||'',
+      'Prueba Hidrostática': r.prueba_hidrostatica||'',
+      'Accesible': r.accesible||'',
+      'Señalizado': r.senalizado||'',
+      'Gabinete': r.gabinete||'',
+      'Manguera': r.manguera||'',
+      'Chiflón': r.chiflon||'',
+      'Coples': r.coples||'',
+      'Espuma': r.espuma||'',
+      'Instrucciones': r.instrucciones||'',
+      'Válvula': r.valvula||'',
+      'Delimitado': r.delimitado||'',
+    };
+    if (t==='traje_bomberos') return {
+      'Tipo Equipo': r.tipo_bombero||'',
+      'Accesible': r.accesible||'',
+      'Señalizado': r.senalizado||'',
+      'Gabinete': r.gabinete||'',
+      'Casco': r.casco||'',
+      'Pantalón': r.pantalon||'',
+      'Chaquetón': r.chaqueton||'',
+      'Monja': r.monja||'',
+      'Botas': r.botas||'',
+      'Guantes': r.guantes||'',
+      'SCBA': r.scba||'',
+      'Estado Equipo': r.estado_equipo||'',
+      'SCBA Cargado': r.cargado_scba||'',
+      'Delimitado': r.delimitado||'',
+    };
+    if (t==='camilla') return {
+      'Tipo Camilla': r.tipo_camilla||'',
+      'Accesible': r.accesible||'',
+      'Señalizada': r.senalizada||'',
+      'Gabinete': r.gabinete||'',
+      'Funda': r.funda||'',
+      'Sujeción': r.sujecion||'',
+      'Estado': r.estado_camilla||'',
+      'Inmovilización': r.inmovilizacion||'',
+      'Araña': r.arana||'',
+      'Pulpo': r.pulpo||'',
+      'Delimitado': r.delimitado||'',
+    };
+    if (t==='regadera') return {
+      'Tipo Regadera': r.tipo_regadera||'',
+      'Accesible': r.accesible||'',
+      'Señalizada': r.senalizada||'',
+      'Nivel Agua': r.nivel_agua||'',
+      'Velocidad Chorro': r.velocidad_chorro||'',
+      'Sin Contaminantes': r.libre_contaminantes||'',
+      'Altura Adecuada': r.altura_adecuada||'',
+      'Posición': r.posicion||'',
+      'Difusor': r.difusor||'',
+      'Rociadores': r.estado_rociadores||'',
+      'Tapón Rociadores': r.tapon_rociadores||'',
+      'Agua Buen Estado': r.agua_buen_estado||'',
+      'Delimitado': r.delimitado||'',
+    };
+    return {};
+  };
+
+  // Construir headers dinámicos — unión de todos los campos
+  const allCampos = new Set();
+  reporteData.forEach(r => Object.keys(getCampos(r)).forEach(k => allCampos.add(k)));
+  const camposArr = [...allCampos];
+
+  const headers = [
+    'Fecha','No. Serie','Área','Tipo','Cliente','Planta','Técnico','No. Empleado',
+    'Estado','Observaciones',
+    ...camposArr,
+    'Fotos'
+  ];
+
   const rows = reporteData.map(r => {
-    const t = TIPOS[r._tipo]||{label:r._tipo};
-    const est = r.estado==='ok'?'OK':r.estado==='observacion'?'Observación':'Crítico';
-    return [
+    const t    = TIPOS[r._tipo]||{label:r._tipo};
+    const est  = r.estado==='ok'?'OK':r.estado==='observacion'?'Observación':'Crítico';
+    const campos = getCampos(r);
+
+    // Fotos — construir URLs públicas
+    const fotosLinks = (r._fotos||[])
+      .map(f => SUPA_STORAGE + f.storage_path)
+      .join(' | ');
+
+    const base = [
       r.fecha_inspeccion||'',
       r.equipos?.no_serie||'',
       r.equipos?.area||'',
       t.label,
       r.equipos?.clientes?.nombre||'',
+      r.equipos?.plantas?.nombre||'',
       r.tecnico_nombre||'',
+      r.tecnico_numero||'',
       est,
       (r.observaciones||'').replace(/,/g,';'),
-    ].map(v=>`"${v}"`).join(',');
+    ];
+
+    const camposVals = camposArr.map(k => campos[k]||'');
+    return [...base, ...camposVals, fotosLinks].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
   });
 
-  const csv = BOM + [headers.join(','), ...rows].join('\n');
+  const csv = BOM + [headers.map(h=>`"${h}"`).join(','), ...rows].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
@@ -1041,7 +1155,7 @@ function exportarExcel() {
   a.download = `AS_Industrial_${cli}_${mes}.csv`.replace(/\s+/g,'_');
   a.click();
   URL.revokeObjectURL(url);
-  showToast('✅ Archivo descargado — ábrelo con Excel');
+  showToast('✅ Reporte descargado con checklist completo');
 }
 
 // ── PERFIL Y CONTRASEÑA ──
