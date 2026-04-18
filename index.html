@@ -69,7 +69,7 @@ h2{font-family:'Syne',sans-serif;font-size:24px;font-weight:700;margin-bottom:6p
 .btn-out:hover{border-color:var(--fire);color:var(--fire);}
 
 /* MAIN */
-.main{flex:1;padding:26px 22px;max-width:1080px;margin:0 auto;width:100%;}
+.main{flex:1;padding:26px 22px;max-width:1080px;margin:0 auto;width:100%;box-sizing:border-box;overflow-x:hidden;}
 .pg-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin-bottom:4px;}
 .pg-sub{color:var(--mist);font-size:13px;margin-bottom:22px;}
 
@@ -185,8 +185,8 @@ tbody td{padding:11px 15px;font-size:13px;}
   .btn-out{display:none;}
   .pg-title{font-size:18px;}
   .pg-sub{font-size:12px;margin-bottom:16px;}
-  .dash-row-4{grid-template-columns:1fr 1fr !important;}
-  .dash-row-5{grid-template-columns:1fr 1fr !important;}
+  .dash-kpi{grid-template-columns:1fr 1fr !important;}
+  .dash-charts{grid-template-columns:1fr !important;}
   .tbl-wrap{overflow-x:auto;}
   .sec-title{font-size:13px;}
   .info-grid{grid-template-columns:1fr 1fr;}
@@ -299,50 +299,85 @@ tbody td{padding:11px 15px;font-size:13px;}
 
   <!-- DASHBOARD -->
   <div id="pDash" class="main" style="display:block">
-    <div style="margin-bottom:20px;">
-      <div class="pg-title">Panel de control</div>
-      <div class="pg-sub" id="dashSub">Bienvenido</div>
-    </div>
 
-    <!-- Fila 1: Tarjetas equipos -->
-    <div class="sec-title">Equipos registrados</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
-      <div class="stat" style="align-self:start"><div class="stat-l">Total equipos</div><div class="stat-v c-fire" id="sTot">—</div></div>
-      <div class="stat" style="align-self:start"><div class="stat-l">✓ OK</div><div class="stat-v c-ok" id="sOk">—</div></div>
-      <div class="stat" style="align-self:start"><div class="stat-l">⚠ Observación / Crítico</div><div class="stat-v c-warn" id="sWarn">—</div></div>
+
+   <!-- ENCABEZADO -->
+   <div style="margin-bottom:24px;">
+    <h1 style="margin:0;font-size:22px;font-weight:700;">
+      Panel de control
+    </h1>
+    <div style="font-size:12px;color:var(--mist);margin-top:4px;">
+      Bienvenido, Administrador AS Industrial
+    </div>
+   </div>
+
+    <!-- Fila 1: Contadores grandes -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+
+      <!-- Total Equipos -->
+      <div style="background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:24px;text-align:center;">
+        <div style="font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--mist);margin-bottom:8px;">Total de Equipos</div>
+        <div id="sTot" style="font-family:'Syne',sans-serif;font-size:64px;font-weight:800;color:var(--fire);line-height:1;">—</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px;">
+          <div style="background:var(--coal);border-radius:var(--rs);padding:10px;">
+            <div style="font-size:10px;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;">✓ OK</div>
+            <div id="sOk" style="font-size:22px;font-weight:700;color:var(--ok);font-family:'Syne',sans-serif;">—</div>
+          </div>
+          <div style="background:var(--coal);border-radius:var(--rs);padding:10px;">
+            <div style="font-size:10px;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;">⚠ Obs/Crítico</div>
+            <div id="sWarn" style="font-size:22px;font-weight:700;color:var(--warn);font-family:'Syne',sans-serif;">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Total Inspecciones -->
+      <div style="background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:24px;text-align:center;">
+        <div style="font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--mist);margin-bottom:4px;">Total de Inspecciones</div>
+        <div style="font-size:11px;color:var(--mist);margin-bottom:8px;" id="dashMesLabel"></div>
+        <div id="iTot" style="font-family:'Syne',sans-serif;font-size:64px;font-weight:800;color:var(--fire-l);line-height:1;">—</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:16px;">
+          <div style="background:var(--coal);border-radius:var(--rs);padding:10px;">
+            <div style="font-size:10px;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;">✓ Exit</div>
+            <div id="iOk" style="font-size:22px;font-weight:700;color:var(--ok);font-family:'Syne',sans-serif;">—</div>
+          </div>
+          <div style="background:var(--coal);border-radius:var(--rs);padding:10px;">
+            <div style="font-size:10px;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;">⚠ Obs</div>
+            <div id="iWarn" style="font-size:22px;font-weight:700;color:var(--warn);font-family:'Syne',sans-serif;">—</div>
+          </div>
+          <div style="background:var(--coal);border-radius:var(--rs);padding:10px;">
+            <div style="font-size:10px;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;">✗ Crit</div>
+            <div id="iCrit" style="font-size:22px;font-weight:700;color:var(--ng);font-family:'Syne',sans-serif;">—</div>
+          </div>
+        </div>
+        <!-- Barra de progreso -->
+        <div style="height:6px;border-radius:3px;background:rgba(255,255,255,.08);margin-top:14px;overflow:hidden;display:flex;">
+          <div id="barOk"   style="background:var(--ok);height:100%;transition:width .6s;width:0%"></div>
+          <div id="barWarn" style="background:var(--warn);height:100%;transition:width .6s;width:0%"></div>
+          <div id="barCrit" style="background:var(--ng);height:100%;transition:width .6s;width:0%"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Fila 2: Gráficas -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
-
-      <!-- Gráfica izquierda: por tipo -->
+    <div style="margin-bottom:12px;">
+      <div class="pg-title">Panel de control</div>
+      <div class="pg-sub" id="dashSub">Bienvenido</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
       <div style="background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:20px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-          <div class="sec-title" style="margin:0">Inspecciones por tipo</div>
-          <div style="font-size:11px;color:var(--mist)" id="dashMesLabel"></div>
-        </div>
-        <div style="display:flex;gap:12px;margin-bottom:14px;">
-          <div class="stat" style="background:var(--coal);padding:10px;flex:1;align-self:start"><div class="stat-l">Total</div><div class="stat-v" style="font-size:20px" id="iTot">—</div></div>
-          <div class="stat" style="background:var(--coal);padding:10px;flex:1;align-self:start"><div class="stat-l">✓ OK</div><div class="stat-v c-ok" style="font-size:20px" id="iOk">—</div></div>
-          <div class="stat" style="background:var(--coal);padding:10px;flex:1;align-self:start"><div class="stat-l">⚠ Obs</div><div class="stat-v c-warn" style="font-size:20px" id="iWarn">—</div></div>
-          <div class="stat" style="background:var(--coal);padding:10px;flex:1;align-self:start"><div class="stat-l">✗ Crit</div><div class="stat-v c-ng" style="font-size:20px" id="iCrit">—</div></div>
-        </div>
+        <div class="sec-title" style="margin-bottom:16px;">Inspecciones por tipo de equipo</div>
         <div id="graficaTipo"></div>
+        <div style="display:flex;gap:14px;margin-top:12px;flex-wrap:wrap;">
+          <span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--mist)"><span style="width:10px;height:10px;background:#2D9E6B;border-radius:2px;display:inline-block"></span>Exitosas</span>
+          <span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--mist)"><span style="width:10px;height:10px;background:#C48A10;border-radius:2px;display:inline-block"></span>Observación</span>
+          <span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--mist)"><span style="width:10px;height:10px;background:#C42B2B;border-radius:2px;display:inline-block"></span>Críticas</span>
+        </div>
       </div>
-
-      <!-- Gráfica derecha: por planta -->
       <div style="background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:20px;">
-        <div class="sec-title" style="margin-bottom:14px;">Inspecciones por planta</div>
+        <div class="sec-title" style="margin-bottom:16px;">Inspecciones por planta</div>
         <div id="graficaPlanta"></div>
       </div>
     </div>
-
-    <!-- Fila 3: Equipos recientes -->
-    <div class="sec-title">Equipos recientes</div>
-    <div class="tbl-wrap"><table>
-      <thead><tr><th>No. Serie</th><th>Área</th><th>Tipo</th><th>Cliente</th><th>Estado</th><th></th></tr></thead>
-      <tbody id="tbDash"></tbody>
-    </table></div>
   </div>
   <!-- EQUIPOS -->
   <div id="pEquipos" style="display:none;flex:1;">
@@ -1446,89 +1481,18 @@ async function loadDashboard() {
     });
   }
 
-  // ── GRÁFICA 2: Inspecciones por planta (barras verticales) ──
-  const { data: plantasData } = await db.from('plantas').select('id,nombre');
-  const plantaLabels=[], plantaCounts=[];
-  if (plantasData?.length) {
-    for (const p of plantasData) {
-      let cnt = 0;
-      for (const t of tipos) {
-        const { data: ip } = await db.from(tablaMap[t])
-          .select('id, equipos!inner(planta_id)')
-          .eq('equipos.planta_id', p.id)
-          .gte('fecha_inspeccion', inicio).lte('fecha_inspeccion', fin);
-        cnt += ip?.length||0;
-      }
-      if (cnt > 0) { plantaLabels.push(p.nombre); plantaCounts.push(cnt); }
-    }
-  }
-  const ctxPlanta = document.getElementById('chartPlanta');
-  if (ctxPlanta && plantaLabels.length > 0) {
-    if (window._chartPlanta) window._chartPlanta.destroy();
-    window._chartPlanta = new Chart(ctxPlanta, {
-      type: 'bar',
-      data: {
-        labels: plantaLabels,
-        datasets: [{ label:'Inspecciones', data: plantaCounts, backgroundColor:'#1B5E8C', borderRadius:4 }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display:false } },
-        scales: {
-          x: { ticks:{color:'#C4BBB8',font:{size:11}}, grid:{color:'rgba(255,255,255,.05)'} },
-          y: { ticks:{color:'#8A7F7A'}, grid:{color:'rgba(255,255,255,.05)'} }
-        }
-      }
-    });
-  } else if (ctxPlanta) {
-    ctxPlanta.parentElement.innerHTML = '<div style="color:var(--mist);font-size:13px;text-align:center;padding:40px 0;">Sin datos de plantas este mes</div>';
-  }
 
-  // Barras por tipo
-  const tiposInfo = [
-    {id:'extintor',    label:'🧯 Extintores',   elId:'sCntExt'},
-    {id:'hidrante',    label:'🚒 Hidrantes',    elId:'sCntHid'},
-    {id:'traje_bomberos',label:'🧥 Trajes',     elId:'sCntTrj'},
-    {id:'camilla',     label:'🛏 Camillas',     elId:'sCntCam'},
-    {id:'regadera',    label:'🚿 Regaderas',    elId:'sCntReg'},
-  ];
-  const barrasEl = document.getElementById('dashBarras');
-  if (barrasEl) {
-    barrasEl.innerHTML = tiposInfo.map(t => {
-      const cnt = equipos?.filter(e=>e.tipo===t.id).length||0;
-      const pct = tot > 0 ? Math.round((cnt/tot)*100) : 0;
-      return `<div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
-          <span style="color:var(--fog)">${t.label}</span>
-          <span style="color:var(--white);font-weight:600">${cnt}</span>
-        </div>
-        <div style="height:6px;border-radius:3px;background:rgba(255,255,255,.08);">
-          <div style="height:100%;width:${pct}%;background:var(--fire);border-radius:3px;transition:width .5s;"></div>
-        </div>
-      </div>`;
-    }).join('');
+  // Barra de progreso
+  if (iTot > 0) {
+    document.getElementById('barOk').style.width   = Math.round(iOk/iTot*100)+'%';
+    document.getElementById('barWarn').style.width = Math.round(iWarn/iTot*100)+'%';
+    document.getElementById('barCrit').style.width = Math.round(iCrit/iTot*100)+'%';
   }
+  document.getElementById('sWarn').textContent = (iWarn||0) + (iCrit||0);
 
-  // Stats OK/Warn
-  document.getElementById('sOk').textContent   = '—';
-  document.getElementById('sWarn').textContent = '—';
-
-  // Tabla equipos recientes
-  const { data: eq } = await db.from('equipos').select('id,no_serie,area,tipo,clientes(nombre)').eq('activo',true).order('created_at',{ascending:false}).limit(10);
+  // Tabla equipos recientes — ya no se muestra
   const tbody = document.getElementById('tbDash');
-  if (!eq?.length) { tbody.innerHTML='<tr><td colspan="6" class="empty">Sin equipos aún</td></tr>'; return; }
-  tbody.innerHTML = eq.map(e => {
-    const t = TIPOS[e.tipo]||{icon:'🔧',label:e.tipo};
-    return `<tr>
-      <td style="font-weight:500">${e.no_serie}</td>
-      <td>${e.area}</td>
-      <td>${t.icon} ${t.label}</td>
-      <td>${e.clientes?.nombre||'—'}</td>
-      <td><span class="badge b-ok">Activo</span></td>
-      <td><button class="btn-s fire" onclick='verFicha(${JSON.stringify(e)})'>Ver</button></td>
-    </tr>`;
-  }).join('');
+  if (tbody) tbody.innerHTML = '';
 }
 
 // ── EQUIPOS ──
