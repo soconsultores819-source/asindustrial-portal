@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 :root{
   --fire:#E8390E;--fire-l:#FF6B3D;--coal:#1A1614;--ash:#2D2825;
@@ -74,7 +75,7 @@ h2{font-family:'Syne',sans-serif;font-size:24px;font-weight:700;margin-bottom:6p
 
 /* STATS */
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px;}
-.stat{background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:18px;}
+.stat{background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:18px;align-self:start;}
 .stat-l{font-size:11px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;color:var(--mist);margin-bottom:8px;}
 .stat-v{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;}
 .c-fire{color:var(--fire-l);}.c-ok{color:#5DCAA5;}.c-warn{color:#EF9F27;}.c-ng{color:#F09595;}
@@ -184,9 +185,8 @@ tbody td{padding:11px 15px;font-size:13px;}
   .btn-out{display:none;}
   .pg-title{font-size:18px;}
   .pg-sub{font-size:12px;margin-bottom:16px;}
-  .stats{grid-template-columns:1fr 1fr !important;gap:10px;margin-bottom:14px;}
-  .stat{padding:14px;}
-  .stat-v{font-size:24px;}
+  .dash-row-4{grid-template-columns:1fr 1fr !important;}
+  .dash-row-5{grid-template-columns:1fr 1fr !important;}
   .tbl-wrap{overflow-x:auto;}
   .sec-title{font-size:13px;}
   .info-grid{grid-template-columns:1fr 1fr;}
@@ -303,26 +303,47 @@ tbody td{padding:11px 15px;font-size:13px;}
       <div class="pg-title">Panel de control</div>
       <div class="pg-sub" id="dashSub">Bienvenido</div>
     </div>
-    <div class="stats">
-      <div class="stat"><div class="stat-l">Total equipos</div><div class="stat-v c-fire" id="sTot">—</div></div>
-      <div class="stat"><div class="stat-l">OK</div><div class="stat-v c-ok" id="sOk">—</div></div>
-      <div class="stat"><div class="stat-l">Observación</div><div class="stat-v c-warn" id="sWarn">—</div></div>
-      <div class="stat"><div class="stat-l">Crítico</div><div class="stat-v c-ng" id="sCrit">—</div></div>
+
+    <!-- Fila 1: Tarjetas equipos -->
+    <div class="sec-title">Equipos registrados</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+      <div class="stat" style="align-self:start"><div class="stat-l">Total equipos</div><div class="stat-v c-fire" id="sTot">—</div></div>
+      <div class="stat" style="align-self:start"><div class="stat-l">✓ OK</div><div class="stat-v c-ok" id="sOk">—</div></div>
+      <div class="stat" style="align-self:start"><div class="stat-l">⚠ Observación / Crítico</div><div class="stat-v c-warn" id="sWarn">—</div></div>
     </div>
-    <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))">
-      <div class="stat"><div class="stat-l">🧯 Extintores</div><div class="stat-v" style="font-size:22px" id="sCntExt">—</div></div>
-      <div class="stat"><div class="stat-l">🚒 Hidrantes</div><div class="stat-v" style="font-size:22px" id="sCntHid">—</div></div>
-      <div class="stat"><div class="stat-l">🧥 Trajes</div><div class="stat-v" style="font-size:22px" id="sCntTrj">—</div></div>
-      <div class="stat"><div class="stat-l">🛏 Camillas</div><div class="stat-v" style="font-size:22px" id="sCntCam">—</div></div>
-      <div class="stat"><div class="stat-l">🚿 Regaderas</div><div class="stat-v" style="font-size:22px" id="sCntReg">—</div></div>
+
+    <!-- Fila 2: Gráficas -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+
+      <!-- Gráfica izquierda: por tipo -->
+      <div style="background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div class="sec-title" style="margin:0">Inspecciones por tipo</div>
+          <div style="font-size:11px;color:var(--mist)" id="dashMesLabel"></div>
+        </div>
+        <div style="display:flex;gap:12px;margin-bottom:14px;">
+          <div class="stat" style="background:var(--coal);padding:10px;flex:1;align-self:start"><div class="stat-l">Total</div><div class="stat-v" style="font-size:20px" id="iTot">—</div></div>
+          <div class="stat" style="background:var(--coal);padding:10px;flex:1;align-self:start"><div class="stat-l">✓ OK</div><div class="stat-v c-ok" style="font-size:20px" id="iOk">—</div></div>
+          <div class="stat" style="background:var(--coal);padding:10px;flex:1;align-self:start"><div class="stat-l">⚠ Obs</div><div class="stat-v c-warn" style="font-size:20px" id="iWarn">—</div></div>
+          <div class="stat" style="background:var(--coal);padding:10px;flex:1;align-self:start"><div class="stat-l">✗ Crit</div><div class="stat-v c-ng" style="font-size:20px" id="iCrit">—</div></div>
+        </div>
+        <div id="graficaTipo"></div>
+      </div>
+
+      <!-- Gráfica derecha: por planta -->
+      <div style="background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:20px;">
+        <div class="sec-title" style="margin-bottom:14px;">Inspecciones por planta</div>
+        <div id="graficaPlanta"></div>
+      </div>
     </div>
+
+    <!-- Fila 3: Equipos recientes -->
     <div class="sec-title">Equipos recientes</div>
     <div class="tbl-wrap"><table>
-      <thead><tr><th>No. Serie</th><th>Área</th><th>Tipo</th><th>Estado</th><th></th></tr></thead>
+      <thead><tr><th>No. Serie</th><th>Área</th><th>Tipo</th><th>Cliente</th><th>Estado</th><th></th></tr></thead>
       <tbody id="tbDash"></tbody>
     </table></div>
   </div>
-
   <!-- EQUIPOS -->
   <div id="pEquipos" style="display:none;flex:1;">
     <div class="main">
@@ -1283,11 +1304,218 @@ async function loadDashboard() {
     const cnt = equipos?.filter(e=>e.tipo===t).length||0;
     document.getElementById(ids[t]).textContent = cnt;
   });
-  // Últimas inspecciones de todas las tablas
-  const { data: eq } = await db.from('equipos').select('id,no_serie,area,tipo,clientes(nombre)').eq('activo',true).order('created_at',{ascending:false}).limit(10);
-  document.getElementById('sOk').textContent = '—';
+
+  // Inspecciones del mes actual
+  const now = new Date();
+  const y = now.getFullYear(), m = String(now.getMonth()+1).padStart(2,'0');
+  const inicio = `${y}-${m}-01`;
+  const fin    = `${y}-${m}-${new Date(y, now.getMonth()+1, 0).getDate()}`;
+  const meses  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  document.getElementById('dashMesLabel').textContent = `— ${meses[now.getMonth()]} ${y}`;
+
+  const tablaMap = {extintor:'insp_extintores',hidrante:'insp_hidrantes',traje_bomberos:'insp_traje_bomberos',camilla:'insp_camillas',regadera:'insp_regaderas'};
+  let iTot=0, iOk=0, iWarn=0, iCrit=0;
+  for (const t of tipos) {
+    const { data: insp } = await db.from(tablaMap[t]).select('estado').gte('fecha_inspeccion', inicio).lte('fecha_inspeccion', fin);
+    if (insp?.length) {
+      iTot  += insp.length;
+      iOk   += insp.filter(i=>i.estado==='ok').length;
+      iWarn += insp.filter(i=>i.estado==='observacion').length;
+      iCrit += insp.filter(i=>i.estado==='critico').length;
+    }
+  }
+  document.getElementById('iTot').textContent  = iTot;
+  document.getElementById('iOk').textContent   = iOk;
+  document.getElementById('iWarn').textContent = iWarn;
+  document.getElementById('iCrit').textContent = iCrit;
+
+  // ── GRÁFICA 1: Barras horizontales por tipo (SVG) ──
+  const tipoLabels2 = ['🧯 Extintores','🚒 Hidrantes','🧥 Trajes','🛏 Camillas','🚿 Regaderas'];
+  const tipoOk2=[], tipoWarn2=[], tipoCrit2=[];
+  for (const t of tipos) {
+    const { data: insp2 } = await db.from(tablaMap[t]).select('estado').gte('fecha_inspeccion', inicio).lte('fecha_inspeccion', fin);
+    tipoOk2.push(insp2?.filter(i=>i.estado==='ok').length||0);
+    tipoWarn2.push(insp2?.filter(i=>i.estado==='observacion').length||0);
+    tipoCrit2.push(insp2?.filter(i=>i.estado==='critico').length||0);
+  }
+  const maxTipo = Math.max(...tipoOk2.map((v,i)=>v+tipoWarn2[i]+tipoCrit2[i]), 1);
+  const grafTipo = document.getElementById('graficaTipo');
+  if (grafTipo) {
+    const barH = 28, gap = 10, labelW = 110, chartW = 280;
+    const totalH = (barH + gap) * 5;
+    let svgRows = tipoLabels2.map((label, i) => {
+      const tot = tipoOk2[i]+tipoWarn2[i]+tipoCrit2[i];
+      const wOk   = Math.round((tipoOk2[i]/maxTipo)*chartW);
+      const wWarn = Math.round((tipoWarn2[i]/maxTipo)*chartW);
+      const wCrit = Math.round((tipoCrit2[i]/maxTipo)*chartW);
+      const y = i*(barH+gap);
+      return `
+        <text x="${labelW-6}" y="${y+barH/2+5}" text-anchor="end" fill="#C4BBB8" font-size="12">${label}</text>
+        <rect x="${labelW}" y="${y}" width="${wOk}"   height="${barH}" fill="#2D9E6B" rx="3"/>
+        <rect x="${labelW+wOk}" y="${y}" width="${wWarn}" height="${barH}" fill="#C48A10" rx="3"/>
+        <rect x="${labelW+wOk+wWarn}" y="${y}" width="${wCrit}" height="${barH}" fill="#C42B2B" rx="3"/>
+        ${tot>0?`<text x="${labelW+wOk+wWarn+wCrit+5}" y="${y+barH/2+5}" fill="#8A7F7A" font-size="11">${tot}</text>`:''}
+      `;
+    }).join('');
+    grafTipo.innerHTML = `
+      <svg width="100%" viewBox="0 0 ${labelW+chartW+40} ${totalH+20}" xmlns="http://www.w3.org/2000/svg">
+        ${svgRows}
+      </svg>
+      <div style="display:flex;gap:14px;margin-top:8px;font-size:11px;color:var(--mist);">
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:#2D9E6B;border-radius:2px;display:inline-block"></span>Exitosas</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:#C48A10;border-radius:2px;display:inline-block"></span>Observación</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:#C42B2B;border-radius:2px;display:inline-block"></span>Críticas</span>
+      </div>`;
+  }
+
+  // ── GRÁFICA 2: Barras verticales por planta (SVG) ──
+  const { data: plantasData } = await db.from('plantas').select('id,nombre');
+  const plantaLabels=[], plantaCounts=[];
+  if (plantasData?.length) {
+    for (const p of plantasData) {
+      let cnt = 0;
+      for (const t of tipos) {
+        const { data: ip } = await db.from(tablaMap[t])
+          .select('id, equipos!inner(planta_id)')
+          .eq('equipos.planta_id', p.id)
+          .gte('fecha_inspeccion', inicio).lte('fecha_inspeccion', fin);
+        cnt += ip?.length||0;
+      }
+      if (cnt > 0) { plantaLabels.push(p.nombre); plantaCounts.push(cnt); }
+    }
+  }
+  const grafPlanta = document.getElementById('graficaPlanta');
+  if (grafPlanta) {
+    if (!plantaLabels.length) {
+      grafPlanta.innerHTML = '<div style="color:var(--mist);font-size:13px;text-align:center;padding:40px 0;">Sin datos de plantas este mes</div>';
+    } else {
+      const maxP = Math.max(...plantaCounts, 1);
+      const barW = Math.max(28, Math.floor(260/plantaLabels.length)-6);
+      const chartH = 160, labelH = 50;
+      const totalW = plantaLabels.length*(barW+8);
+      let svgBars = plantaLabels.map((label, i) => {
+        const h = Math.round((plantaCounts[i]/maxP)*chartH);
+        const x = i*(barW+8);
+        const y = chartH-h;
+        const shortLabel = label.length>10 ? label.substring(0,10)+'…' : label;
+        return `
+          <rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="#1B5E8C" rx="3"/>
+          <text x="${x+barW/2}" y="${y-4}" text-anchor="middle" fill="#C4BBB8" font-size="11">${plantaCounts[i]}</text>
+          <text x="${x+barW/2}" y="${chartH+14}" text-anchor="middle" fill="#8A7F7A" font-size="10">${shortLabel}</text>
+        `;
+      }).join('');
+      grafPlanta.innerHTML = `
+        <svg width="100%" viewBox="0 0 ${Math.max(totalW,260)} ${chartH+labelH}" xmlns="http://www.w3.org/2000/svg">
+          ${svgBars}
+        </svg>`;
+    }
+  }
+
+  // ── GRÁFICA 1: Inspecciones por tipo de equipo (barras horizontales) ──
+  const tipoLabels = ['🧯 Extintores','🚒 Hidrantes','🧥 Trajes','🛏 Camillas','🚿 Regaderas'];
+  const tipoOk=[], tipoWarn=[], tipoCrit=[];
+  for (const t of tipos) {
+    const { data: insp2 } = await db.from(tablaMap[t]).select('estado').gte('fecha_inspeccion', inicio).lte('fecha_inspeccion', fin);
+    tipoOk.push(insp2?.filter(i=>i.estado==='ok').length||0);
+    tipoWarn.push(insp2?.filter(i=>i.estado==='observacion').length||0);
+    tipoCrit.push(insp2?.filter(i=>i.estado==='critico').length||0);
+  }
+  const ctxTipo = document.getElementById('chartTipo');
+  if (ctxTipo) {
+    if (window._chartTipo) window._chartTipo.destroy();
+    window._chartTipo = new Chart(ctxTipo, {
+      type: 'bar',
+      data: {
+        labels: tipoLabels,
+        datasets: [
+          { label:'Exitosas',    data: tipoOk,   backgroundColor:'#2D9E6B' },
+          { label:'Observación', data: tipoWarn,  backgroundColor:'#C48A10' },
+          { label:'Críticas',    data: tipoCrit,  backgroundColor:'#C42B2B' },
+        ]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { labels: { color:'#8A7F7A', font:{size:11} } } },
+        scales: {
+          x: { stacked:true, ticks:{color:'#8A7F7A'}, grid:{color:'rgba(255,255,255,.05)'} },
+          y: { stacked:true, ticks:{color:'#C4BBB8'}, grid:{color:'rgba(255,255,255,.05)'} }
+        }
+      }
+    });
+  }
+
+  // ── GRÁFICA 2: Inspecciones por planta (barras verticales) ──
+  const { data: plantasData } = await db.from('plantas').select('id,nombre');
+  const plantaLabels=[], plantaCounts=[];
+  if (plantasData?.length) {
+    for (const p of plantasData) {
+      let cnt = 0;
+      for (const t of tipos) {
+        const { data: ip } = await db.from(tablaMap[t])
+          .select('id, equipos!inner(planta_id)')
+          .eq('equipos.planta_id', p.id)
+          .gte('fecha_inspeccion', inicio).lte('fecha_inspeccion', fin);
+        cnt += ip?.length||0;
+      }
+      if (cnt > 0) { plantaLabels.push(p.nombre); plantaCounts.push(cnt); }
+    }
+  }
+  const ctxPlanta = document.getElementById('chartPlanta');
+  if (ctxPlanta && plantaLabels.length > 0) {
+    if (window._chartPlanta) window._chartPlanta.destroy();
+    window._chartPlanta = new Chart(ctxPlanta, {
+      type: 'bar',
+      data: {
+        labels: plantaLabels,
+        datasets: [{ label:'Inspecciones', data: plantaCounts, backgroundColor:'#1B5E8C', borderRadius:4 }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display:false } },
+        scales: {
+          x: { ticks:{color:'#C4BBB8',font:{size:11}}, grid:{color:'rgba(255,255,255,.05)'} },
+          y: { ticks:{color:'#8A7F7A'}, grid:{color:'rgba(255,255,255,.05)'} }
+        }
+      }
+    });
+  } else if (ctxPlanta) {
+    ctxPlanta.parentElement.innerHTML = '<div style="color:var(--mist);font-size:13px;text-align:center;padding:40px 0;">Sin datos de plantas este mes</div>';
+  }
+
+  // Barras por tipo
+  const tiposInfo = [
+    {id:'extintor',    label:'🧯 Extintores',   elId:'sCntExt'},
+    {id:'hidrante',    label:'🚒 Hidrantes',    elId:'sCntHid'},
+    {id:'traje_bomberos',label:'🧥 Trajes',     elId:'sCntTrj'},
+    {id:'camilla',     label:'🛏 Camillas',     elId:'sCntCam'},
+    {id:'regadera',    label:'🚿 Regaderas',    elId:'sCntReg'},
+  ];
+  const barrasEl = document.getElementById('dashBarras');
+  if (barrasEl) {
+    barrasEl.innerHTML = tiposInfo.map(t => {
+      const cnt = equipos?.filter(e=>e.tipo===t.id).length||0;
+      const pct = tot > 0 ? Math.round((cnt/tot)*100) : 0;
+      return `<div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+          <span style="color:var(--fog)">${t.label}</span>
+          <span style="color:var(--white);font-weight:600">${cnt}</span>
+        </div>
+        <div style="height:6px;border-radius:3px;background:rgba(255,255,255,.08);">
+          <div style="height:100%;width:${pct}%;background:var(--fire);border-radius:3px;transition:width .5s;"></div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Stats OK/Warn
+  document.getElementById('sOk').textContent   = '—';
   document.getElementById('sWarn').textContent = '—';
-  document.getElementById('sCrit').textContent = '—';
+
+  // Tabla equipos recientes
+  const { data: eq } = await db.from('equipos').select('id,no_serie,area,tipo,clientes(nombre)').eq('activo',true).order('created_at',{ascending:false}).limit(10);
   const tbody = document.getElementById('tbDash');
   if (!eq?.length) { tbody.innerHTML='<tr><td colspan="6" class="empty">Sin equipos aún</td></tr>'; return; }
   tbody.innerHTML = eq.map(e => {
