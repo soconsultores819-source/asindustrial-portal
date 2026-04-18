@@ -1661,6 +1661,14 @@ async function saveInspection() {
   // Subir fotos y registrar en fotos_inspeccion
   const files = document.getElementById('fFiles')?.files;
   if (files && files.length > 0) {
+    const tipoColMap = {
+      extintor:       'inspeccion_ext_id',
+      hidrante:       'inspeccion_hid_id',
+      traje_bomberos: 'inspeccion_trj_id',
+      camilla:        'inspeccion_cam_id',
+      regadera:       'inspeccion_reg_id',
+    };
+    const tipoCol = tipoColMap[tipo] || 'inspeccion_id';
     for (const file of files) {
       const ext = file.name.split('.').pop();
       const path = `${currentEquipo.id}/${inspData.id}/${Date.now()}_${Math.random().toString(36).substr(2,6)}.${ext}`;
@@ -1668,6 +1676,7 @@ async function saveInspection() {
       if (!upErr) {
         await db.from('fotos_inspeccion').insert({
           inspeccion_id: inspData.id,
+          [tipoCol]: inspData.id,
           storage_path: path,
           descripcion: file.name,
           tipo_inspeccion: tipo,
