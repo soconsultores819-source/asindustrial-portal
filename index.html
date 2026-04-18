@@ -299,106 +299,77 @@ tbody td{padding:11px 15px;font-size:13px;}
 
   <!-- DASHBOARD -->
   <div id="pDash" class="main" style="display:block">
-
-
-   <!-- ENCABEZADO -->
-   <div style="margin-bottom:24px;">
-    <h1 style="margin:0;font-size:22px;font-weight:700;">
-      Panel de control
-    </h1>
-    <div 
-    id="dashSub"
-    style="font-size:12px;color:var(--mist);margin-top:4px;"
-    > 
-      Bienvenido, Administrador AS Industrial
+    <!-- Título -->
+    <div style="margin-bottom:18px;">
+      <div class="pg-title">Panel de control</div>
+      <div class="pg-sub" id="dashSub">Bienvenido</div>
     </div>
-   </div>
+    <!-- 4 tarjetas horizontales -->
+    <div class="dash-kpi" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;align-items:start;">
 
-
-   <!-- KPI -->
-   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
-    ...
-   </div>
-
-  <!-- GRÁFICAS -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-    ...
-  </div>
-
-</div>
-
-
-    <!-- Fila 1: Contadores grandes -->
-    <div style="
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:16px;
-    margin-bottom:20px;
-   ">
-
-      <!-- Total Equipos -->
+      <!-- Tarjeta 1: Total Equipos -->
       <div style="background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:24px;text-align:center;">
-        <div style="font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--mist);margin-bottom:8px;">Total de Equipos</div>
-        <div id="sTot" style="font-family:'Syne',sans-serif;font-size:64px;font-weight:800;color:var(--fire);line-height:1;">—</div>
+        <div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--mist);margin-bottom:8px;">Total de Equipos</div>
+        <div id="sTot" style="font-family:'Syne',sans-serif;font-size:56px;font-weight:800;color:var(--fire);line-height:1;">—</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px;">
           <div style="background:var(--coal);border-radius:var(--rs);padding:10px;">
-            <div style="font-size:10px;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;">✓ OK</div>
-            <div id="sOk" style="font-size:22px;font-weight:700;color:var(--ok);font-family:'Syne',sans-serif;">—</div>
+            <div style="font-size:9px;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;">✓ OK</div>
+            <div id="sOk" style="font-size:20px;font-weight:700;color:var(--ok);font-family:'Syne',sans-serif;">—</div>
           </div>
           <div style="background:var(--coal);border-radius:var(--rs);padding:10px;">
-            <div style="font-size:10px;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;">⚠ Obs/Crítico</div>
-            <div id="sWarn" style="font-size:22px;font-weight:700;color:var(--warn);font-family:'Syne',sans-serif;">—</div>
+            <div style="font-size:9px;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;">⚠ Obs/Crit</div>
+            <div id="sWarn" style="font-size:20px;font-weight:700;color:var(--warn);font-family:'Syne',sans-serif;">—</div>
           </div>
         </div>
       </div>
 
-      <!-- Total Inspecciones -->
+      <!-- Tarjeta 2: Total Inspecciones -->
       <div style="background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:24px;text-align:center;">
-        <div style="font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--mist);margin-bottom:4px;">Total de Inspecciones</div>
-        <div style="font-size:11px;color:var(--mist);margin-bottom:8px;" id="dashMesLabel"></div>
-        <div id="iTot" style="font-family:'Syne',sans-serif;font-size:64px;font-weight:800;color:var(--fire-l);line-height:1;">—</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:16px;">
-          <div style="background:var(--coal);border-radius:var(--rs);padding:10px;">
-            <div style="font-size:10px;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;">✓ Exit</div>
-            <div id="iOk" style="font-size:22px;font-weight:700;color:var(--ok);font-family:'Syne',sans-serif;">—</div>
+        <div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--mist);margin-bottom:4px;">Total de Inspecciones</div>
+        <div style="font-size:10px;color:var(--mist);margin-bottom:6px;" id="dashMesLabel"></div>
+        <div id="iTot" style="font-family:'Syne',sans-serif;font-size:56px;font-weight:800;color:var(--fire-l);line-height:1;">—</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:16px;">
+          <div style="background:var(--coal);border-radius:var(--rs);padding:8px;">
+            <div style="font-size:9px;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;">✓ Exit</div>
+            <div id="iOk" style="font-size:20px;font-weight:700;color:var(--ok);font-family:'Syne',sans-serif;">—</div>
           </div>
-          <div style="background:var(--coal);border-radius:var(--rs);padding:10px;">
-            <div style="font-size:10px;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;">⚠ Obs</div>
-            <div id="iWarn" style="font-size:22px;font-weight:700;color:var(--warn);font-family:'Syne',sans-serif;">—</div>
+          <div style="background:var(--coal);border-radius:var(--rs);padding:8px;">
+            <div style="font-size:9px;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;">⚠ Obs</div>
+            <div id="iWarn" style="font-size:20px;font-weight:700;color:var(--warn);font-family:'Syne',sans-serif;">—</div>
           </div>
-          <div style="background:var(--coal);border-radius:var(--rs);padding:10px;">
-            <div style="font-size:10px;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;">✗ Crit</div>
-            <div id="iCrit" style="font-size:22px;font-weight:700;color:var(--ng);font-family:'Syne',sans-serif;">—</div>
+          <div style="background:var(--coal);border-radius:var(--rs);padding:8px;">
+            <div style="font-size:9px;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;">✗ Crit</div>
+            <div id="iCrit" style="font-size:20px;font-weight:700;color:var(--ng);font-family:'Syne',sans-serif;">—</div>
           </div>
         </div>
-        <!-- Barra de progreso -->
-        <div style="height:6px;border-radius:3px;background:rgba(255,255,255,.08);margin-top:14px;overflow:hidden;display:flex;">
+        <div style="height:5px;border-radius:3px;background:rgba(255,255,255,.08);margin-top:12px;overflow:hidden;display:flex;">
           <div id="barOk"   style="background:var(--ok);height:100%;transition:width .6s;width:0%"></div>
           <div id="barWarn" style="background:var(--warn);height:100%;transition:width .6s;width:0%"></div>
           <div id="barCrit" style="background:var(--ng);height:100%;transition:width .6s;width:0%"></div>
         </div>
       </div>
-    </div>
 
-    <!-- Fila 2: Gráficas -->
-    
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <!-- Tarjeta 3: Inspecciones por tipo -->
       <div style="background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:20px;">
-        <div class="sec-title" style="margin-bottom:16px;">Inspecciones por tipo de equipo</div>
+        <div class="sec-title" style="margin-bottom:14px;">Inspecciones por tipo de equipo</div>
         <div id="graficaTipo"></div>
-        <div style="display:flex;gap:14px;margin-top:12px;flex-wrap:wrap;">
-          <span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--mist)"><span style="width:10px;height:10px;background:#2D9E6B;border-radius:2px;display:inline-block"></span>Exitosas</span>
-          <span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--mist)"><span style="width:10px;height:10px;background:#C48A10;border-radius:2px;display:inline-block"></span>Observación</span>
-          <span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--mist)"><span style="width:10px;height:10px;background:#C42B2B;border-radius:2px;display:inline-block"></span>Críticas</span>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:12px;">
+          <span style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mist)"><span style="width:10px;height:10px;background:#2D9E6B;border-radius:2px;display:inline-block;flex-shrink:0"></span>Exitosas</span>
+          <span style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mist)"><span style="width:10px;height:10px;background:#C48A10;border-radius:2px;display:inline-block;flex-shrink:0"></span>Observación</span>
+          <span style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mist)"><span style="width:10px;height:10px;background:#C42B2B;border-radius:2px;display:inline-block;flex-shrink:0"></span>Críticas</span>
         </div>
       </div>
+
+      <!-- Tarjeta 4: Inspecciones por planta -->
       <div style="background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:20px;">
-        <div class="sec-title" style="margin-bottom:16px;">Inspecciones por planta</div>
+        <div class="sec-title" style="margin-bottom:14px;">Inspecciones por planta</div>
         <div id="graficaPlanta"></div>
       </div>
+
     </div>
+
   </div>
-  <!-- EQUIPOS -->
+    <!-- EQUIPOS -->
   <div id="pEquipos" style="display:none;flex:1;">
     <div class="main">
       <div class="pg-title">Equipos registrados</div>
