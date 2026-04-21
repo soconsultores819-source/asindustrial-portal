@@ -1042,12 +1042,14 @@ async function buscarReporte() {
   const tbody = document.getElementById('rTbody');
   thead.innerHTML = `<tr>
     <th>Fecha</th><th>No. Serie</th><th>Área</th><th>Tipo</th><th>Cliente</th><th>Planta</th>
-    <th>Técnico</th><th>Estado</th><th>Observaciones</th>
+    <th>Técnico</th><th>Estado</th><th>Observaciones</th><th></th>
   </tr>`;
   tbody.innerHTML = reporteData.map(r => {
     const t = TIPOS[r._tipo]||{icon:'',label:r._tipo};
     const est = r.estado==='ok'?'✓ OK':r.estado==='observacion'?'⚠ Obs':'✗ Crítico';
     const estColor = r.estado==='ok'?'var(--ok)':r.estado==='observacion'?'var(--warn)':'var(--ng)';
+    const canDel = currentUser && (currentUser.role==='admin' || currentUser.id===r.tecnico_id);
+    const btnDel = canDel ? `<button onclick="deleteInspection('${r.id}','${r._tipo}')" style="background:none;border:1px solid var(--ng);color:var(--ng);cursor:pointer;font-size:12px;padding:3px 8px;border-radius:4px;" title="Eliminar">🗑 Borrar</button>` : '';
     return `<tr>
       <td>${r.fecha_inspeccion||'—'}</td>
       <td style="font-weight:500">${r.equipos?.no_serie||'—'}</td>
@@ -1058,6 +1060,7 @@ async function buscarReporte() {
       <td>${r.tecnico_nombre||'—'}</td>
       <td style="color:${estColor};font-weight:500">${est}</td>
       <td style="max-width:200px;white-space:normal;font-size:12px">${r.observaciones||'—'}</td>
+      <td>${btnDel}</td>
     </tr>`;
   }).join('');
 }
@@ -1542,7 +1545,9 @@ async function verFicha(equipo) {
     document.getElementById('fichaHist').innerHTML = inspList.map(i=>{
       const b = i.estado==='ok'?'b-ok':i.estado==='observacion'?'b-warn':'b-ng';
       const tx = i.estado==='ok'?'✓ OK':i.estado==='observacion'?'⚠ Observación':'✗ Crítico';
-      return `<div class="hist-i"><div class="hist-d">${i.fecha_inspeccion}</div><div class="hist-t">Téc. ${i.tecnico_nombre||'—'}</div><span class="badge ${b}">${tx}</span></div>`;
+      const canDel = currentUser && (currentUser.role==='admin' || currentUser.id===i.tecnico_id);
+      const btnDel = canDel ? `<button onclick="deleteInspection('${i.id}','${currentEquipo.tipo}')" style="background:none;border:none;color:var(--ng);cursor:pointer;font-size:13px;padding:2px 6px;border-radius:4px;opacity:.7;" title="Eliminar inspección">🗑</button>` : '';
+      return `<div class="hist-i"><div class="hist-d">${i.fecha_inspeccion}</div><div class="hist-t">Téc. ${i.tecnico_nombre||'—'}</div><span class="badge ${b}">${tx}</span>${btnDel}</div>`;
     }).join('');
   } else {
     document.getElementById('fichaStatus').textContent='Sin inspecciones';
@@ -1840,6 +1845,23 @@ async function saveInspection() {
   const { data: inspData, error } = await db.from(tabla).insert(payload).select().single();
   if (error) { loader(false); showToast('❌ Error: '+error.message, true); return; }
 
+  // Registrar en tabla maestra inspecciones (para dashboard y reportes)
+  const inspMaestra = {
+    id: inspData.id,
+    equipo_id: currentEquipo.id,
+    tecnico_id: currentUser?.id||null,
+    tecnico_nombre: payload.tecnico_nombre,
+    tecnico_numero: payload.tecnico_numero||null,
+    fecha_inspeccion: fecha,
+    area: payload.area||null,
+    no_serie: payload.no_serie||null,
+    marca: payload.marca||null,
+    estado: payload.estado||'ok',
+    observaciones: payload.observaciones||null,
+  };
+  const { error: errMaestra } = await db.from('inspecciones').insert(inspMaestra);
+  if (errMaestra) console.warn('Aviso tabla maestra:', errMaestra.message);
+
   // Subir fotos y registrar en fotos_inspeccion
   const files = document.getElementById('fFiles')?.files;
   if (files && files.length > 0) {
@@ -1872,6 +1894,26 @@ async function saveInspection() {
   document.getElementById('formMain').style.display = 'none';
   document.getElementById('formSuccess').style.display = 'flex';
   showToast('✅ Inspección guardada correctamente');
+}
+
+// ── ELIMINAR INSPECCIÓN ──
+async function deleteInspection(inspId, tipo) {
+  if (!confirm('¿Eliminar esta inspección? Esta acción no se puede deshacer.')) return;
+  const tablaMap = {
+    extintor:'insp_extintores', hidrante:'insp_hidrantes',
+    traje_bomberos:'insp_traje_bomberos', camilla:'insp_camillas', regadera:'insp_regaderas'
+  };
+  const tabla = tablaMap[tipo] || null;
+  loader(true);
+  // Borrar de tabla específica
+  if (tabla) await db.from(tabla).delete().eq('id', inspId);
+  // Borrar de tabla maestra
+  await db.from('inspecciones').delete().eq('id', inspId);
+  loader(false);
+  showToast('🗑 Inspección eliminada');
+  // Recargar vista actual
+  if (currentEquipo) loadFicha(currentEquipo.id);
+  else if (document.getElementById('pReportes').style.display !== 'none') loadReporte();
 }
 
 // ── ADMIN ──
