@@ -1327,10 +1327,12 @@ async function loadDashboard() {
   const tot = equipos?.length||0;
   document.getElementById('sTot').textContent = tot;
   const tipos = ['extintor','hidrante','traje_bomberos','camilla','regadera'];
+  // Actualizar contadores por tipo solo si los elementos existen
   const ids = {'extintor':'sCntExt','hidrante':'sCntHid','traje_bomberos':'sCntTrj','camilla':'sCntCam','regadera':'sCntReg'};
   tipos.forEach(t => {
     const cnt = equipos?.filter(e=>e.tipo===t).length||0;
-    document.getElementById(ids[t]).textContent = cnt;
+    const el = document.getElementById(ids[t]);
+    if (el) el.textContent = cnt;
   });
 
   // Inspecciones del mes actual
