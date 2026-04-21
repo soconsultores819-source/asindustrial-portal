@@ -1342,16 +1342,17 @@ async function loadDashboard() {
   document.getElementById('dashMesLabel').textContent = `— ${meses[now.getMonth()]} ${y}`;
 
   const tablaMap = {extintor:'insp_extintores',hidrante:'insp_hidrantes',traje_bomberos:'insp_traje_bomberos',camilla:'insp_camillas',regadera:'insp_regaderas'};
-  let iTot=0, iOk=0, iWarn=0, iCrit=0;
-  for (const t of tipos) {
-    const { data: insp } = await db.from(tablaMap[t]).select('estado').gte('fecha_inspeccion', inicio).lte('fecha_inspeccion', fin);
-    if (insp?.length) {
-      iTot  += insp.length;
-      iOk   += insp.filter(i=>i.estado==='ok').length;
-      iWarn += insp.filter(i=>i.estado==='observacion').length;
-      iCrit += insp.filter(i=>i.estado==='critico').length;
-    }
-  }
+
+  // Leer inspecciones del mes desde tabla maestra
+  const { data: inspMes } = await db.from('inspecciones')
+    .select('estado, tipo_equipo, equipo_id')
+    .gte('fecha_inspeccion', inicio)
+    .lte('fecha_inspeccion', fin);
+
+  const iTot  = inspMes?.length||0;
+  const iOk   = inspMes?.filter(i=>i.estado==='ok').length||0;
+  const iWarn = inspMes?.filter(i=>i.estado==='observacion').length||0;
+  const iCrit = inspMes?.filter(i=>i.estado==='critico').length||0;
   document.getElementById('iTot').textContent  = iTot;
   document.getElementById('iOk').textContent   = iOk;
   document.getElementById('iWarn').textContent = iWarn;
@@ -1361,10 +1362,10 @@ async function loadDashboard() {
   const tipoLabels2 = ['🧯 Extintores','🚒 Hidrantes','🧥 Trajes','🛏 Camillas','🚿 Regaderas'];
   const tipoOk2=[], tipoWarn2=[], tipoCrit2=[];
   for (const t of tipos) {
-    const { data: insp2 } = await db.from(tablaMap[t]).select('estado').gte('fecha_inspeccion', inicio).lte('fecha_inspeccion', fin);
-    tipoOk2.push(insp2?.filter(i=>i.estado==='ok').length||0);
-    tipoWarn2.push(insp2?.filter(i=>i.estado==='observacion').length||0);
-    tipoCrit2.push(insp2?.filter(i=>i.estado==='critico').length||0);
+    const rows = inspMes?.filter(i=>i.tipo_equipo===t)||[];
+    tipoOk2.push(rows.filter(i=>i.estado==='ok').length);
+    tipoWarn2.push(rows.filter(i=>i.estado==='observacion').length);
+    tipoCrit2.push(rows.filter(i=>i.estado==='critico').length);
   }
   const maxTipo = Math.max(...tipoOk2.map((v,i)=>v+tipoWarn2[i]+tipoCrit2[i]), 1);
   const grafTipo = document.getElementById('graficaTipo');
@@ -1399,16 +1400,12 @@ async function loadDashboard() {
   // ── GRÁFICA 2: Barras verticales por planta (SVG) ──
   const { data: plantasData } = await db.from('plantas').select('id,nombre');
   const plantaLabels=[], plantaCounts=[];
+  // Cargar IDs de equipos por planta para cruzar con inspMes
+  const { data: equiposPlanta } = await db.from('equipos').select('id, planta_id').eq('activo', true);
   if (plantasData?.length) {
     for (const p of plantasData) {
-      let cnt = 0;
-      for (const t of tipos) {
-        const { data: ip } = await db.from(tablaMap[t])
-          .select('id, equipos!inner(planta_id)')
-          .eq('equipos.planta_id', p.id)
-          .gte('fecha_inspeccion', inicio).lte('fecha_inspeccion', fin);
-        cnt += ip?.length||0;
-      }
+      const eqIds = equiposPlanta?.filter(e=>e.planta_id===p.id).map(e=>e.id)||[];
+      const cnt = inspMes?.filter(i=> eqIds.includes(i.equipo_id)).length||0;
       if (cnt > 0) { plantaLabels.push(p.nombre); plantaCounts.push(cnt); }
     }
   }
