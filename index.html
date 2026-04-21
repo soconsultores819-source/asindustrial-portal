@@ -353,11 +353,7 @@ tbody td{padding:11px 15px;font-size:13px;}
       <div style="background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:20px;">
         <div class="sec-title" style="margin-bottom:14px;">Inspecciones por tipo de equipo</div>
         <div id="graficaTipo"></div>
-        <div style="display:flex;flex-direction:column;gap:6px;margin-top:12px;">
-          <span style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mist)"><span style="width:10px;height:10px;background:#2D9E6B;border-radius:2px;display:inline-block;flex-shrink:0"></span>Exitosas</span>
-          <span style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mist)"><span style="width:10px;height:10px;background:#C48A10;border-radius:2px;display:inline-block;flex-shrink:0"></span>Observación</span>
-          <span style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mist)"><span style="width:10px;height:10px;background:#C42B2B;border-radius:2px;display:inline-block;flex-shrink:0"></span>Críticas</span>
-        </div>
+
       </div>
 
       <!-- Tarjeta 4: Inspecciones por planta -->
@@ -1438,40 +1434,7 @@ async function loadDashboard() {
     }
   }
 
-  // ── GRÁFICA 1: Inspecciones por tipo de equipo (barras horizontales) ──
-  const tipoLabels = ['🧯 Extintores','🚒 Hidrantes','🧥 Trajes','🛏 Camillas','🚿 Regaderas'];
-  const tipoOk=[], tipoWarn=[], tipoCrit=[];
-  for (const t of tipos) {
-    const { data: insp2 } = await db.from(tablaMap[t]).select('estado').gte('fecha_inspeccion', inicio).lte('fecha_inspeccion', fin);
-    tipoOk.push(insp2?.filter(i=>i.estado==='ok').length||0);
-    tipoWarn.push(insp2?.filter(i=>i.estado==='observacion').length||0);
-    tipoCrit.push(insp2?.filter(i=>i.estado==='critico').length||0);
-  }
-  const ctxTipo = document.getElementById('chartTipo');
-  if (ctxTipo) {
-    if (window._chartTipo) window._chartTipo.destroy();
-    window._chartTipo = new Chart(ctxTipo, {
-      type: 'bar',
-      data: {
-        labels: tipoLabels,
-        datasets: [
-          { label:'Exitosas',    data: tipoOk,   backgroundColor:'#2D9E6B' },
-          { label:'Observación', data: tipoWarn,  backgroundColor:'#C48A10' },
-          { label:'Críticas',    data: tipoCrit,  backgroundColor:'#C42B2B' },
-        ]
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { labels: { color:'#8A7F7A', font:{size:11} } } },
-        scales: {
-          x: { stacked:true, ticks:{color:'#8A7F7A'}, grid:{color:'rgba(255,255,255,.05)'} },
-          y: { stacked:true, ticks:{color:'#C4BBB8'}, grid:{color:'rgba(255,255,255,.05)'} }
-        }
-      }
-    });
-  }
+
 
 
   // Barra de progreso
