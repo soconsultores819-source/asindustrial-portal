@@ -1867,15 +1867,24 @@ async function deleteInspection(inspId, tipo) {
   };
   const tabla = tablaMap[tipo] || null;
   loader(true);
+
   // Borrar de tabla específica
-  if (tabla) await db.from(tabla).delete().eq('id', inspId);
+  if (tabla) {
+    const { error: e1 } = await db.from(tabla).delete().eq('id', inspId);
+    if (e1) { loader(false); showToast('❌ Error al eliminar: ' + e1.message, true); return; }
+  }
+
   // Borrar de tabla maestra
-  await db.from('inspecciones').delete().eq('id', inspId);
+  const { error: e2 } = await db.from('inspecciones').delete().eq('id', inspId);
+  if (e2) { loader(false); showToast('❌ Error tabla maestra: ' + e2.message, true); return; }
+
   loader(false);
-  showToast('🗑 Inspección eliminada');
-  // Recargar vista actual
+  showToast('✅ Inspección eliminada');
+
+  // Recargar todo lo que corresponda
+  loadDashboard();
   if (currentEquipo) loadFicha(currentEquipo.id);
-  else if (document.getElementById('pReportes').style.display !== 'none') loadReporte();
+  else if (document.getElementById('pReportes')?.style.display !== 'none') loadReporte();
 }
 
 // ── ADMIN ──
