@@ -1255,6 +1255,16 @@ async function changePassword() {
 // ── RECUPERAR CONTRASEÑA (login) ──
 function showResetPanel() {
   document.getElementById('panelLogin').style.display = 'none';
+  // Pre-cargar equipos en caché para uso offline
+  if (navigator.onLine) {
+    db.from('equipos').select('*,clientes(nombre)').eq('activo',true).order('tipo').order('no_serie')
+      .then(({ data }) => {
+        if (data?.length) {
+          localStorage.setItem('cachedEquipos', JSON.stringify(data));
+          localStorage.setItem('cachedEquiposTime', new Date().toISOString());
+        }
+      });
+  }
   document.getElementById('panelReset').style.display = 'block';
   document.getElementById('resetErr').style.display   = 'none';
   document.getElementById('resetOk').style.display    = 'none';
@@ -1327,7 +1337,18 @@ function goTab(tab) {
 
 // ── DASHBOARD ──
 async function loadDashboard() {
-  const { data: equipos } = await db.from('equipos').select('id,tipo').eq('activo',true);
+  let equipos = null;
+  if (navigator.onLine) {
+    const { data } = await db.from('equipos').select('id,tipo').eq('activo',true);
+    equipos = data;
+  } else {
+    const cached = localStorage.getItem('cachedEquipos');
+    equipos = cached ? JSON.parse(cached) : [];
+  }
+  // Convertir a formato id,tipo si viene del caché completo
+  if (equipos?.length && equipos[0].no_serie) {
+    equipos = equipos.map(e => ({ id: e.id, tipo: e.tipo }));
+  }
   const tot = equipos?.length||0;
   document.getElementById('sTot').textContent = tot;
   const tipos = ['extintor','hidrante','traje_bomberos','camilla','regadera'];
@@ -1350,10 +1371,25 @@ async function loadDashboard() {
   const tablaMap = {extintor:'insp_extintores',hidrante:'insp_hidrantes',traje_bomberos:'insp_traje_bomberos',camilla:'insp_camillas',regadera:'insp_regaderas'};
 
   // Leer inspecciones del mes desde tabla maestra
-  const { data: inspMes } = await db.from('inspecciones')
-    .select('estado, tipo_equipo, equipo_id')
-    .gte('fecha_inspeccion', inicio)
-    .lte('fecha_inspeccion', fin);
+  let inspMes = null;
+  if (navigator.onLine) {
+    const { data } = await db.from('inspecciones')
+      .select('estado, tipo_equipo, equipo_id')
+      .gte('fecha_inspeccion', inicio)
+      .lte('fecha_inspeccion', fin);
+    inspMes = data;
+    if (data) localStorage.setItem('cachedInspMes', JSON.stringify({ data, mes: inicio }));
+  } else {
+    const cached = localStorage.getItem('cachedInspMes');
+    if (cached) {
+      const { data, mes } = JSON.parse(cached);
+      if (mes === inicio) inspMes = data;
+    }
+    // Agregar pendientes locales al conteo
+    const pending = JSON.parse(localStorage.getItem('pendingInspections') || '[]');
+    const pendingInsp = pending.map(p => ({ estado: p.payload.estado||'ok', tipo_equipo: p.tipo, equipo_id: p.equipo_id }));
+    inspMes = [...(inspMes||[]), ...pendingInsp];
+  }
 
   const iTot  = inspMes?.length||0;
   const iOk   = inspMes?.filter(i=>i.estado==='ok').length||0;
@@ -1462,13 +1498,38 @@ async function loadDashboard() {
 async function loadEquipos() {
   loader(true);
   const filtro = document.getElementById('filtroTipo')?.value;
-  let q = db.from('equipos').select('*,clientes(nombre)').eq('activo',true).order('tipo').order('no_serie');
-  if (filtro) q = q.eq('tipo', filtro);
-  const { data } = await q;
+  let equiposData = null;
+
+  if (navigator.onLine) {
+    // Con internet: cargar de Supabase y guardar en caché
+    let q = db.from('equipos').select('*,clientes(nombre)').eq('activo',true).order('tipo').order('no_serie');
+    if (filtro) q = q.eq('tipo', filtro);
+    const { data } = await q;
+    equiposData = data;
+    // Guardar todos los equipos en caché (sin filtro para tener todo disponible offline)
+    if (!filtro && data?.length) {
+      localStorage.setItem('cachedEquipos', JSON.stringify(data));
+      localStorage.setItem('cachedEquiposTime', new Date().toISOString());
+    }
+  } else {
+    // Sin internet: cargar del caché
+    const cached = localStorage.getItem('cachedEquipos');
+    if (cached) {
+      const allEquipos = JSON.parse(cached);
+      equiposData = filtro ? allEquipos.filter(e => e.tipo === filtro) : allEquipos;
+      showToast('📱 Mostrando equipos en caché (sin internet)');
+    }
+  }
+
   loader(false);
   const tbody = document.getElementById('tbEquipos');
-  if (!data?.length) { tbody.innerHTML='<tr><td colspan="6" class="empty">No hay equipos registrados</td></tr>'; return; }
-  tbody.innerHTML = data.map(e => {
+  if (!equiposData?.length) {
+    tbody.innerHTML = navigator.onLine
+      ? '<tr><td colspan="6" class="empty">No hay equipos registrados</td></tr>'
+      : '<tr><td colspan="6" class="empty">Sin conexión — abre el portal con internet primero para cargar los equipos</td></tr>';
+    return;
+  }
+  tbody.innerHTML = equiposData.map(e => {
     const t = TIPOS[e.tipo]||{icon:'🔧',label:e.tipo};
     return `<tr>
       <td style="font-weight:500">${e.no_serie}</td>
