@@ -168,6 +168,10 @@ tbody td{padding:11px 15px;font-size:13px;}
 .empty{text-align:center;padding:36px;color:var(--mist);font-size:13px;}
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);color:#fff;padding:12px 20px;border-radius:var(--r);font-weight:500;font-size:14px;z-index:9999;transition:transform .4s cubic-bezier(.16,1,.3,1);white-space:nowrap;}
 .toast.show{transform:translateX(-50%) translateY(0);}
+.offline-badge{display:none;align-items:center;gap:6px;background:#C48A10;color:#fff;font-size:12px;font-weight:600;padding:4px 10px;border-radius:20px;cursor:pointer;border:none;}
+.offline-badge.show{display:flex;}
+.offline-dot{width:8px;height:8px;background:#fff;border-radius:50%;animation:pulse 1.2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
 .hamburger{display:none;background:none;border:none;color:var(--white);font-size:28px;cursor:pointer;padding:4px 10px;line-height:1;font-weight:300;}
 .mobile-menu{display:none;position:fixed;top:60px;left:0;right:0;background:var(--ash);border-bottom:1px solid rgba(255,255,255,.1);z-index:99;flex-direction:column;padding:8px 12px;}
 .mobile-menu.open{display:flex;}
@@ -250,6 +254,10 @@ tbody td{padding:11px 15px;font-size:13px;}
       <button class="tab" id="tAdmin" style="display:none" onclick="goTab('admin')">Administrar</button>    </div>
     <button class="hamburger" onclick="toggleMenu()" id="hamburgerBtn">☰</button>
     <div class="nav-r">
+      <button class="offline-badge" id="offlineBadge" onclick="showPendingInspections()" title="Inspecciones pendientes de sincronizar">
+        <span class="offline-dot"></span>
+        <span id="offlineCount">0</span> pendientes
+      </button>
       <div class="avatar" id="navAv" onclick="goTab('perfil')" style="cursor:pointer;" title="Mi perfil">U</div>
       <div style="font-size:13px;cursor:pointer;" id="navName" onclick="goTab('perfil')" title="Mi perfil">Usuario</div>
       <div class="rbadge" id="navRole">-</div>
@@ -1803,6 +1811,36 @@ async function saveInspection() {
     agua_buen_estado:getR('agua'), delimitado:getR('del'),
   });
 
+  // ── MODO OFFLINE: si no hay internet, guardar localmente ──
+  if (!navigator.onLine) {
+    const offlineInsp = {
+      id: 'offline_' + Date.now(),
+      payload, tipo, tabla,
+      equipo_nombre: currentEquipo.nombre || currentEquipo.no_serie || 'Equipo',
+      equipo_id: currentEquipo.id,
+      fecha_guardado: new Date().toISOString(),
+      fotos: [] // fotos se guardan como base64
+    };
+    // Guardar fotos como base64
+    const files = document.getElementById('fFiles')?.files;
+    if (files && files.length > 0) {
+      const fotoPromises = Array.from(files).map(file => new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = e => resolve({ name: file.name, data: e.target.result });
+        reader.readAsDataURL(file);
+      }));
+      offlineInsp.fotos = await Promise.all(fotoPromises);
+    }
+    const pending = JSON.parse(localStorage.getItem('pendingInspections') || '[]');
+    pending.push(offlineInsp);
+    localStorage.setItem('pendingInspections', JSON.stringify(pending));
+    updateOfflineBadge();
+    loader(false);
+    showToast('📱 Sin internet — inspección guardada localmente');
+    goTab('equipos');
+    return;
+  }
+
   loader(true);
   const { data: inspData, error } = await db.from(tabla).insert(payload).select().single();
   if (error) { loader(false); showToast('❌ Error: '+error.message, true); return; }
@@ -1886,6 +1924,102 @@ async function deleteInspection(inspId, tipo) {
   if (currentEquipo) loadFicha(currentEquipo.id);
   else if (document.getElementById('pReportes')?.style.display !== 'none') loadReporte();
 }
+
+// ── MODO OFFLINE ──
+
+function updateOfflineBadge() {
+  const pending = JSON.parse(localStorage.getItem('pendingInspections') || '[]');
+  const badge = document.getElementById('offlineBadge');
+  const count = document.getElementById('offlineCount');
+  if (!badge) return;
+  if (pending.length > 0) {
+    badge.classList.add('show');
+    count.textContent = pending.length;
+  } else {
+    badge.classList.remove('show');
+  }
+}
+
+function showPendingInspections() {
+  const pending = JSON.parse(localStorage.getItem('pendingInspections') || '[]');
+  if (!pending.length) { showToast('✅ Todo sincronizado'); return; }
+  const lista = pending.map((p,i) => `${i+1}. ${p.equipo_nombre} — ${p.tipo} — ${new Date(p.fecha_guardado).toLocaleString('es-MX')}`).join('\n');
+  if (confirm(`Tienes ${pending.length} inspección(es) pendiente(s):\n\n${lista}\n\n¿Sincronizar ahora?`)) {
+    syncPendingInspections();
+  }
+}
+
+async function syncPendingInspections() {
+  if (!navigator.onLine) { showToast('❌ Sin conexión, intenta más tarde', true); return; }
+  const pending = JSON.parse(localStorage.getItem('pendingInspections') || '[]');
+  if (!pending.length) return;
+  loader(true);
+  let synced = 0, errors = 0;
+  const remaining = [];
+  for (const insp of pending) {
+    try {
+      // Subir inspección a tabla específica
+      const cleanPayload = {...insp.payload};
+      const { data: inspData, error } = await db.from(insp.tabla).insert(cleanPayload).select().single();
+      if (error) { errors++; remaining.push(insp); continue; }
+
+      // Registrar en tabla maestra
+      await db.from('inspecciones').insert({
+        id: inspData.id,
+        equipo_id: insp.equipo_id,
+        tecnico_id: insp.payload.tecnico_id||null,
+        tecnico_nombre: insp.payload.tecnico_nombre||null,
+        tecnico_numero: insp.payload.tecnico_numero||null,
+        fecha_inspeccion: insp.payload.fecha_inspeccion,
+        estado: insp.payload.estado||'ok',
+        observaciones: insp.payload.observaciones||null,
+        tipo_equipo: insp.tipo,
+      });
+
+      // Subir fotos si hay
+      if (insp.fotos && insp.fotos.length > 0) {
+        for (const foto of insp.fotos) {
+          try {
+            const res = await fetch(foto.data);
+            const blob = await res.blob();
+            const path = `${inspData.id}/${foto.name}`;
+            await db.storage.from('inspecciones').upload(path, blob, { upsert: true });
+            await db.from('fotos_inspeccion').insert({ inspeccion_id: inspData.id, url: path, tipo_tabla: insp.tabla });
+          } catch(e) { console.warn('Error subiendo foto:', e); }
+        }
+      }
+      synced++;
+    } catch(e) { errors++; remaining.push(insp); }
+  }
+  localStorage.setItem('pendingInspections', JSON.stringify(remaining));
+  updateOfflineBadge();
+  loader(false);
+  if (synced > 0) {
+    loadDashboard();
+    showToast(`✅ ${synced} inspección(es) sincronizada(s)`);
+  }
+  if (errors > 0) showToast(`⚠️ ${errors} inspección(es) con error`, true);
+}
+
+// Detectar cuando regresa internet y sincronizar automáticamente
+window.addEventListener('online', () => {
+  showToast('📶 Conexión restaurada — sincronizando...');
+  setTimeout(syncPendingInspections, 1500);
+});
+
+window.addEventListener('offline', () => {
+  showToast('📵 Sin conexión — modo offline activo', true);
+});
+
+// Verificar pendientes al cargar
+window.addEventListener('load', () => {
+  updateOfflineBadge();
+  // Si hay internet y hay pendientes, sincronizar
+  if (navigator.onLine) {
+    const pending = JSON.parse(localStorage.getItem('pendingInspections') || '[]');
+    if (pending.length > 0) setTimeout(syncPendingInspections, 3000);
+  }
+});
 
 // ── ADMIN ──
 function printQR(id, serie) {
