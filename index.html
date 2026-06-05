@@ -1,0 +1,3086 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AS Industrial — Portal de Inspecciones</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --fire:#E8390E;--fire-l:#FF6B3D;--coal:#1A1614;--ash:#2D2825;
+  --smoke:#4A4440;--mist:#8A7F7A;--fog:#C4B8B2;
+  --white:#FDFAF7;--ok:#2D9E6B;--ok-bg:#E8F5EE;
+  --warn:#C48A10;--warn-bg:#FDF4DC;--ng:#C42B2B;--ng-bg:#FAEAEA;
+  --r:14px;--rs:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--coal);color:var(--white);min-height:100vh;}
+.view{display:none;min-height:100vh;}
+.view.active{display:flex;flex-direction:column;}
+
+/* LOGIN */
+#vLogin{align-items:center;justify-content:center;position:relative;overflow:hidden;background:var(--coal);}
+.login-bg{position:absolute;inset:0;background:radial-gradient(ellipse 60% 60% at 80% 20%,rgba(232,57,14,.18) 0%,transparent 70%);pointer-events:none;}
+.login-card{position:relative;z-index:1;background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:24px;padding:48px;width:100%;max-width:420px;animation:up .5s cubic-bezier(.16,1,.3,1);}
+@keyframes up{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.logo{display:flex;align-items:center;gap:12px;margin-bottom:32px;}
+.logo-icon{width:42px;height:42px;background:var(--fire);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;}
+.logo-name{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;}
+.logo-name span{color:var(--fire);}
+h2{font-family:'Syne',sans-serif;font-size:24px;font-weight:700;margin-bottom:6px;}
+.sub{color:var(--mist);font-size:13px;margin-bottom:28px;}
+.field{margin-bottom:16px;}
+.field label{display:block;font-size:11px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;color:var(--fog);margin-bottom:7px;}
+.field input,.field select{width:100%;padding:13px 15px;background:var(--coal);border:1px solid rgba(255,255,255,.1);border-radius:var(--rs);color:var(--white);font-family:'DM Sans',sans-serif;font-size:15px;outline:none;transition:border-color .2s;}
+.field input:focus,.field select:focus{border-color:var(--fire);}
+.btn-fire{width:100%;padding:15px;background:var(--fire);border:none;border-radius:var(--rs);color:#fff;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;}
+.btn-fire:hover{background:var(--fire-l);}
+.err{background:var(--ng-bg);color:var(--ng);border-radius:var(--rs);padding:10px 14px;font-size:13px;margin-bottom:14px;display:none;}
+
+/* LOADER */
+.loader-overlay{display:none;position:fixed;inset:0;background:rgba(26,22,20,.85);z-index:999;align-items:center;justify-content:center;flex-direction:column;gap:12px;}
+.loader-overlay.show{display:flex;}
+.spinner{width:36px;height:36px;border:3px solid rgba(232,57,14,.3);border-top-color:var(--fire);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* NAVBAR */
+.navbar{background:var(--ash);border-bottom:1px solid rgba(255,255,255,.07);padding:0 22px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;}
+.nav-logo span{color:var(--fire);}
+.nav-tabs{display:flex;gap:4px;}
+.tab{background:none;border:none;color:var(--mist);padding:7px 13px;border-radius:var(--rs);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif;}
+.tab:hover{color:var(--white);background:rgba(255,255,255,.06);}
+.tab.active{color:var(--white);background:rgba(255,255,255,.1);}
+.hamburger{display:none;background:none;border:none;color:var(--white);font-size:22px;cursor:pointer;padding:4px 8px;}
+.mobile-menu{display:none;position:fixed;top:60px;left:0;right:0;background:var(--ash);border-bottom:1px solid rgba(255,255,255,.1);z-index:200;flex-direction:column;padding:8px;}
+.mobile-menu.open{display:flex;}
+.mobile-tab{background:none;border:none;color:var(--fog);padding:14px 20px;font-size:15px;font-weight:500;cursor:pointer;text-align:left;font-family:'DM Sans',sans-serif;border-radius:var(--rs);transition:all .2s;}
+.mobile-tab:hover,.mobile-tab.active{color:var(--white);background:rgba(255,255,255,.08);}
+.nav-r{display:flex;align-items:center;gap:10px;}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--fire);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;}
+.rbadge{padding:2px 9px;border-radius:20px;font-size:11px;font-weight:500;}
+.r-admin{background:rgba(232,57,14,.2);color:var(--fire-l);}
+.r-supervisor{background:rgba(100,80,232,.2);color:#9B8FFF;}
+.r-ayudante{background:#2D6BE4;}
+.r-tecnico{background:rgba(45,158,107,.2);color:#5DCAA5;}
+.r-cliente{background:rgba(196,138,16,.2);color:#EF9F27;}
+.btn-out{background:none;border:1px solid rgba(255,255,255,.12);color:var(--fog);padding:6px 12px;border-radius:var(--rs);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;}
+.btn-out:hover{border-color:var(--fire);color:var(--fire);}
+
+/* MAIN */
+.main{flex:1;padding:26px 22px;max-width:1080px;margin:0 auto;width:100%;box-sizing:border-box;overflow-x:hidden;}
+.pg-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin-bottom:4px;}
+.pg-sub{color:var(--mist);font-size:13px;margin-bottom:22px;}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px;}
+.stat{background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:18px;align-self:start;}
+.stat-l{font-size:11px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;color:var(--mist);margin-bottom:8px;}
+.stat-v{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;}
+.c-fire{color:var(--fire-l);}.c-ok{color:#5DCAA5;}.c-warn{color:#EF9F27;}.c-ng{color:#F09595;}
+
+/* TABLE */
+.tbl-wrap{background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);overflow:hidden;overflow-x:auto;}
+table{width:100%;border-collapse:collapse;}
+thead th{padding:11px 15px;text-align:left;font-size:11px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;color:var(--mist);border-bottom:1px solid rgba(255,255,255,.07);}
+tbody tr{border-bottom:1px solid rgba(255,255,255,.04);transition:background .15s;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:rgba(255,255,255,.03);}
+tbody td{padding:11px 15px;font-size:13px;}
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;}
+.b-ok{background:var(--ok-bg);color:var(--ok);}
+.b-warn{background:var(--warn-bg);color:var(--warn);}
+.b-ng{background:var(--ng-bg);color:var(--ng);}
+.btn-s{padding:5px 12px;border-radius:var(--rs);font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif;border:1px solid rgba(255,255,255,.12);background:none;color:var(--fog);}
+.btn-s:hover{border-color:var(--fire);color:var(--fire);}
+.btn-s.fire{background:var(--fire);border-color:var(--fire);color:#fff;}
+.btn-s.fire:hover{background:var(--fire-l);}
+
+/* FICHA */
+.ficha-hero{background:linear-gradient(135deg,var(--ash) 0%,rgba(45,40,37,.95) 100%);border-bottom:1px solid rgba(255,255,255,.07);padding:26px 22px;}
+.ficha-hdr{display:flex;align-items:flex-start;gap:16px;max-width:860px;margin:0 auto;}
+.ficha-ico{width:56px;height:56px;border-radius:14px;background:var(--fire);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
+.ficha-id{font-size:11px;color:var(--fire-l);font-weight:500;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;}
+.ficha-nm{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;margin-bottom:3px;}
+.ficha-ar{font-size:13px;color:var(--mist);}
+.fstatus{margin-left:auto;flex-shrink:0;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;}
+.fs-ok{background:rgba(45,158,107,.15);color:#5DCAA5;border:1px solid rgba(45,158,107,.3);}
+.fs-warn{background:rgba(196,138,16,.15);color:#EF9F27;border:1px solid rgba(196,138,16,.3);}
+.fs-ng{background:rgba(196,43,43,.15);color:#F09595;border:1px solid rgba(196,43,43,.3);}
+.ficha-body{max-width:860px;margin:22px auto;padding:0 22px;}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:22px;}
+.ic{background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:14px;}
+.ic-l{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--mist);margin-bottom:4px;}
+.ic-v{font-size:14px;font-weight:500;}
+.sec-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:12px;}
+.chk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:8px;margin-bottom:22px;}
+.chk{background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--rs);padding:10px 13px;display:flex;align-items:center;gap:8px;font-size:13px;}
+.chk-i{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;}
+.ci-ok{background:rgba(45,158,107,.2);color:#5DCAA5;}
+.ci-ng{background:rgba(196,43,43,.2);color:#F09595;}
+.ci-na{background:rgba(138,127,122,.2);color:var(--mist);}
+.obs-box{background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:16px;margin-bottom:22px;font-size:13px;line-height:1.7;color:var(--fog);}
+.hist-list{display:flex;flex-direction:column;gap:8px;margin-bottom:22px;}
+.hist-i{background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;gap:12px;}
+.hist-d{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--fog);min-width:80px;}
+.hist-t{font-size:12px;color:var(--mist);flex:1;}
+.btn-inspect{display:inline-flex;align-items:center;gap:7px;background:var(--fire);border:none;color:#fff;padding:12px 24px;border-radius:var(--rs);font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;margin-bottom:22px;}
+.btn-inspect:hover{background:var(--fire-l);}
+.qr-bar{background:linear-gradient(90deg,var(--ash),rgba(45,40,37,.5));border:1px solid rgba(232,57,14,.2);border-radius:var(--r);padding:10px 16px;margin-bottom:18px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--fog);max-width:860px;margin-left:auto;margin-right:auto;}
+
+/* TIPO BADGE */
+.tipo-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:500;margin-bottom:14px;}
+.tb-extintor{background:rgba(232,57,14,.15);color:var(--fire-l);border:1px solid rgba(232,57,14,.2);}
+.tb-hidrante{background:rgba(55,138,221,.15);color:#85B7EB;border:1px solid rgba(55,138,221,.2);}
+.tb-traje{background:rgba(127,119,221,.15);color:#AFA9EC;border:1px solid rgba(127,119,221,.2);}
+.tb-camilla{background:rgba(45,158,107,.15);color:#5DCAA5;border:1px solid rgba(45,158,107,.2);}
+.tb-regadera{background:rgba(196,138,16,.15);color:#EF9F27;border:1px solid rgba(196,138,16,.2);}
+
+/* FORMULARIO */
+.form-wrap{max-width:700px;margin:0 auto;padding:26px 22px;}
+.fsec{margin-bottom:26px;}
+.fsec-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--fire-l);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid rgba(232,57,14,.2);}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.ff{display:flex;flex-direction:column;gap:5px;}
+.ff.full{grid-column:1/-1;}
+.fl{font-size:11px;font-weight:500;letter-spacing:.3px;color:var(--fog);text-transform:uppercase;}
+.fi,.fs,.ft{background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--rs);color:var(--white);padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color .2s;}
+.fi:focus,.fs:focus,.ft:focus{border-color:var(--fire);}
+.fs option{background:var(--ash);}
+.ft{resize:vertical;min-height:75px;}
+.rg{display:flex;gap:7px;flex-wrap:wrap;}
+.ro{display:flex;align-items:center;gap:5px;background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--rs);padding:8px 12px;cursor:pointer;font-size:13px;transition:all .2s;}
+.ro:has(input:checked){border-color:var(--fire);background:rgba(232,57,14,.12);color:var(--fire-l);}
+.ro input{accent-color:var(--fire);}
+.upload-area{border:2px dashed rgba(255,255,255,.15);border-radius:var(--r);padding:24px;text-align:center;cursor:pointer;grid-column:1/-1;}
+.upload-area:hover{border-color:var(--fire);}
+.prev-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.prev-img{width:70px;height:52px;object-fit:cover;border-radius:5px;}
+.form-btns{display:flex;gap:10px;margin-top:12px;}
+.btn-cancel{flex:1;padding:13px;background:none;border:1px solid rgba(255,255,255,.15);border-radius:var(--rs);color:var(--fog);font-family:'Syne',sans-serif;font-size:14px;font-weight:600;cursor:pointer;}
+.btn-save{flex:2;padding:13px;background:var(--fire);border:none;border-radius:var(--rs);color:#fff;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;}
+.btn-save:hover{background:var(--fire-l);}
+.suc-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:50vh;text-align:center;padding:40px;}
+.suc-ico{font-size:56px;margin-bottom:16px;}
+.suc-title{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;margin-bottom:8px;color:#5DCAA5;}
+.suc-sub{color:var(--mist);font-size:14px;margin-bottom:22px;}
+.empty{text-align:center;padding:36px;color:var(--mist);font-size:13px;}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);color:#fff;padding:12px 20px;border-radius:var(--r);font-weight:500;font-size:14px;z-index:9999;transition:transform .4s cubic-bezier(.16,1,.3,1);white-space:nowrap;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.offline-badge{display:none;align-items:center;gap:6px;background:#C48A10;color:#fff;font-size:12px;font-weight:600;padding:4px 10px;border-radius:20px;cursor:pointer;border:none;}
+.offline-badge.show{display:flex;}
+.offline-dot{width:8px;height:8px;background:#fff;border-radius:50%;animation:pulse 1.2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.hamburger{display:none;background:none;border:none;color:var(--white);font-size:28px;cursor:pointer;padding:4px 10px;line-height:1;font-weight:300;}
+.mobile-menu{display:none;position:fixed;top:60px;left:0;right:0;background:var(--ash);border-bottom:1px solid rgba(255,255,255,.1);z-index:99;flex-direction:column;padding:8px 12px;}
+.mobile-menu.open{display:flex;}
+.m-tab{background:none;border:none;color:var(--mist);padding:14px 16px;font-size:15px;font-weight:500;cursor:pointer;text-align:left;font-family:'DM Sans',sans-serif;border-radius:var(--rs);transition:all .2s;width:100%;}
+.m-tab:hover,.m-tab.active{color:var(--white);background:rgba(255,255,255,.08);}
+@media(max-width:768px){
+  .fgrid{grid-template-columns:1fr;}
+  .ficha-hdr{flex-direction:column;}
+  .fstatus{margin-left:0;}
+  .navbar{padding:0 14px;}
+  .main{padding:16px 12px;}
+  .nav-tabs{display:none !important;}
+  .hamburger{display:block !important;}
+  .nav-r #navName,.nav-r .rbadge{display:none;}
+  .btn-out{display:none;}
+  .pg-title{font-size:18px;}
+  .pg-sub{font-size:12px;margin-bottom:16px;}
+  .dash-kpi{grid-template-columns:1fr !important;}
+  .dash-charts{grid-template-columns:1fr !important;}
+  .tbl-wrap{overflow-x:auto;}
+  .sec-title{font-size:13px;}
+  .info-grid{grid-template-columns:1fr 1fr;}
+  .chk-grid{grid-template-columns:1fr 1fr;}
+}
+</style>
+  <!-- QR Scanner library -->
+  <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
+</head>
+<body>
+
+<!-- MODAL EDITAR USUARIO -->
+  <div id="modalEditUser" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;align-items:center;justify-content:center;padding:16px;">
+    <div style="background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:28px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <div class="sec-title">✏️ Editar Usuario</div>
+        <button onclick="document.getElementById('modalEditUser').style.display='none'" style="background:none;border:none;color:var(--mist);font-size:20px;cursor:pointer;">✕</button>
+      </div>
+      <input type="hidden" id="eUserId">
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="ff"><label class="fl">Nombre completo *</label>
+          <input class="fi" id="eUserNombre" placeholder="Nombre del usuario"></div>
+        <div class="ff"><label class="fl">No. empleado</label>
+          <input class="fi" id="eUserNumero" placeholder="EMP-001 (opcional)"></div>
+        <div class="ff"><label class="fl">Rol *</label>
+          <select class="fi" id="eUserRol" onchange="toggleEditPlantaWrap(this.value)">
+            <option value="tecnico">🔧 Técnico</option>
+            <option value="supervisor">👁️ Supervisor</option>
+            <option value="ayudante">🏗️ Ayudante (registro en campo)</option>
+            <option value="cliente">👤 Cliente</option>
+            <option value="admin">⚙️ Administrador</option>
+          </select>
+        </div>
+        <div id="eUserPlantaWrap" style="display:none;flex-direction:column;gap:8px;">
+          <div class="ff"><label class="fl">Cliente</label>
+            <select class="fs" id="eUserCliente" onchange="loadPlantasSelect(this.value,'eUserPlanta')">
+              <option value="">— Sin cliente —</option>
+            </select>
+          </div>
+          <div class="ff"><label class="fl">Planta</label>
+            <select class="fs" id="eUserPlanta"><option value="">— Sin planta —</option></select>
+          </div>
+        </div>
+        <div class="ff"><label class="fl">Nueva contraseña</label>
+          <input class="fi" id="eUserPass" type="password" placeholder="Dejar vacío para no cambiar">
+          <small style="color:var(--mist);font-size:10px;margin-top:4px;">Solo llena si quieres cambiar la contraseña</small>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:20px;">
+        <button class="btn-cancel" onclick="document.getElementById('modalEditUser').style.display='none'" style="flex:1;">Cancelar</button>
+        <button class="btn-save" onclick="saveEditUsuario()" style="flex:1;">💾 Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CANDADO -->
+  <!-- MODAL CANDADO CON CÁMARA NATIVA -->
+  <div id="modalCandado" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:600;align-items:center;justify-content:center;padding:16px;">
+    <div style="background:var(--ash);border:2px solid var(--fire);border-radius:var(--r);padding:24px;width:100%;max-width:440px;">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:36px;margin-bottom:6px;">🔒</div>
+        <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:var(--fire);margin-bottom:4px;">Verificación requerida</div>
+        <div style="font-size:11px;color:var(--mist);margin-bottom:8px;">Equipo encontrado:</div>
+        <div id="candadoInfo" style="font-size:12px;color:var(--fog);padding:8px;background:var(--coal);border-radius:var(--rs);"></div>
+      </div>
+
+      <div style="font-size:13px;color:var(--fog);margin-bottom:14px;text-align:center;line-height:1.5;">
+        Escanea con tu cámara el QR <b style="color:var(--fire);">naranja</b> que está colgado en el extintor
+      </div>
+
+      <!-- Input nativo de cámara -->
+      <input type="file" id="candadoCamaraInput" accept="image/*" capture="environment" 
+        style="display:none;" onchange="leerQRDeFoto(this)">
+
+      <button onclick="document.getElementById('candadoCamaraInput').click()"
+        style="width:100%;padding:14px;background:var(--fire);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:12px;">
+        📷 Escanear QR del extintor
+      </button>
+
+      <!-- Preview de la foto y resultado -->
+      <div id="candadoFotoWrap" style="display:none;margin-bottom:10px;text-align:center;">
+        <img id="candadoFotoPreview" style="max-width:100%;max-height:160px;border-radius:6px;border:2px solid rgba(255,255,255,.1);" alt=""/>
+        <div id="candadoDebug" style="font-size:10px;color:var(--mist);margin-top:4px;word-break:break-all;"></div>
+      </div>
+
+      <canvas id="candadoCanvas" style="display:none;"></canvas>
+      <input type="hidden" id="candadoQRBase">
+      <div id="candadoError" style="display:none;color:var(--ng);font-size:12px;margin-bottom:10px;padding:8px;background:rgba(196,43,43,.1);border-radius:var(--rs);"></div>
+      <button class="btn-cancel" onclick="cerrarCandado()" style="width:100%;">Cancelar</button>
+    </div>
+  </div>
+
+  <div class="loader-overlay" id="loader"><div class="spinner"></div><div style="font-size:13px;color:var(--fog)">Cargando...</div></div>
+<div class="toast" id="toast"></div>
+
+<!-- LOGIN -->
+<div class="view active" id="vLogin">
+  <div class="login-bg"></div>
+  <div class="login-card">
+    <div class="logo"><div class="logo-icon">🔥</div><div class="logo-name">AS <span>Industrial</span></div></div>
+
+    <!-- Panel login -->
+    <div id="panelLogin">
+      <h2>Acceso al portal</h2>
+      <div class="sub">Solo personal autorizado y clientes registrados</div>
+      <div class="err" id="loginErr"></div>
+      <div class="field"><label>Correo electrónico</label><input type="email" id="inEmail" placeholder="correo@empresa.com"></div>
+      <div class="field"><label>Contraseña</label><input type="password" id="inPass" placeholder="••••••••"></div>
+      <button class="btn-fire" onclick="doLogin()">Ingresar</button>
+      <div style="text-align:center;margin-top:16px;">
+        <button onclick="showResetPanel()" style="background:none;border:none;color:var(--mist);font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:underline;">
+          ¿Olvidaste tu contraseña?
+        </button>
+      </div>
+    </div>
+
+    <!-- Panel recuperar contraseña -->
+    <div id="panelReset" style="display:none;">
+      <h2>Recuperar contraseña</h2>
+      <div class="sub">Te enviaremos un enlace para restablecer tu contraseña</div>
+      <div class="err" id="resetErr"></div>
+      <div class="field"><label>Correo electrónico</label><input type="email" id="resetEmail" placeholder="correo@empresa.com"></div>
+      <button class="btn-fire" onclick="doReset()">Enviar enlace</button>
+      <div style="text-align:center;margin-top:16px;">
+        <button onclick="showLoginPanel()" style="background:none;border:none;color:var(--mist);font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:underline;">
+          ← Volver al login
+        </button>
+      </div>
+      <div id="resetOk" style="display:none;background:var(--ok-bg);color:var(--ok);border-radius:var(--rs);padding:12px 14px;font-size:13px;margin-top:12px;text-align:center;">
+        ✅ Correo enviado. Revisa tu bandeja de entrada.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="view" id="vApp" style="flex-direction:column;">
+  <nav class="navbar">
+    <div class="nav-logo">AS <span>Industrial</span></div>
+    <div class="nav-tabs">
+      <button class="tab active" id="tDash" onclick="goTab('dash')">Dashboard</button>
+      <button class="tab" id="tEquipos" onclick="goTab('equipos')">Equipos</button>
+      <button class="tab" id="tReportes" onclick="goTab('reportes')">Reportes</button>
+      <button class="tab" id="tAdmin" style="display:none" onclick="goTab('admin')">Administrar</button>    </div>
+    <button class="hamburger" onclick="toggleMenu()" id="hamburgerBtn">☰</button>
+    <div class="nav-r">
+      <button class="offline-badge" id="offlineBadge" onclick="showPendingInspections()" title="Inspecciones pendientes de sincronizar">
+        <span class="offline-dot"></span>
+        <span id="offlineCount">0</span> pendientes
+      </button>
+      <div class="avatar" id="navAv" onclick="goTab('perfil')" style="cursor:pointer;" title="Mi perfil">U</div>
+      <div style="font-size:13px;cursor:pointer;" id="navName" onclick="goTab('perfil')" title="Mi perfil">Usuario</div>
+      <div class="rbadge" id="navRole">-</div>
+      <button class="btn-out" onclick="doLogout()">Salir</button>
+    </div>
+  </nav>
+
+  <!-- MOBILE MENU -->
+  <div class="mobile-menu" id="mobileMenu">
+    <button class="m-tab active" id="mDash" onclick="goTab('dash');toggleMenu()">📊 Dashboard</button>
+    <button class="m-tab" id="mEquipos" onclick="goTab('equipos');toggleMenu()">🔧 Equipos</button>
+    <button class="m-tab" id="mReportes" onclick="goTab('reportes');toggleMenu()">📄 Reportes</button>
+    <button class="m-tab" id="mAdmin" style="display:none" onclick="goTab('admin');toggleMenu()">⚙️ Administrar</button>
+    <button class="m-tab" onclick="goTab('perfil');toggleMenu()">👤 Mi perfil</button>
+    <button class="m-tab" onclick="doLogout()" style="color:#F09595">🚪 Salir</button>
+  </div>
+
+  <!-- MI PERFIL -->
+  <div id="pPerfil" style="display:none;flex:1;align-items:center;justify-content:center;">
+    <div style="background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:24px;padding:40px;width:100%;max-width:480px;margin:24px;">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:28px;">
+        <div class="avatar" style="width:52px;height:52px;font-size:20px;" id="perfilAvatar">U</div>
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;" id="perfilNombre">—</div>
+          <div class="rbadge" id="perfilRol" style="margin-top:4px;">—</div>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid rgba(255,255,255,.08);padding-top:24px;">
+        <div class="sec-title" style="margin-bottom:18px;">Cambiar contraseña</div>
+        <div class="err" id="passErr"></div>
+        <div class="field"><label>Nueva contraseña</label><input type="password" id="newPass" placeholder="Mínimo 6 caracteres"></div>
+        <div class="field"><label>Confirmar contraseña</label><input type="password" id="confirmPass" placeholder="Repite la contraseña"></div>
+        <button class="btn-fire" onclick="changePassword()">Actualizar contraseña</button>
+        <div id="passOk" style="display:none;background:var(--ok-bg);color:var(--ok);border-radius:var(--rs);padding:12px;font-size:13px;margin-top:12px;text-align:center;">
+          ✅ Contraseña actualizada correctamente
+        </div>
+      </div>
+
+      <div style="margin-top:20px;text-align:center;">
+        <button onclick="goTab('dash')" style="background:none;border:none;color:var(--mist);font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:underline;">
+          ← Volver al dashboard
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="pDash" class="main" style="display:block">
+    <!-- Título -->
+    <div style="margin-bottom:18px;width:100%;">
+      <div class="pg-title">Panel de control</div>
+      <div class="pg-sub" id="dashSub">Bienvenido</div>
+    </div>
+
+    <!-- ACCESO RÁPIDO EN CAMPO -->
+    <div id="campoTools" style="display:none;background:var(--ash);border:1px solid rgba(232,57,14,.3);border-radius:var(--r);padding:18px;margin-bottom:20px;">
+      <div style="font-size:12px;font-weight:700;color:var(--fire);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;">⚡ Acceso rápido — Campo</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <div style="flex:1;min-width:200px;position:relative;">
+          <input id="campoBuscar" class="fi" type="text" placeholder="🔍 Buscar No. de serie..." 
+            oninput="campoBuscarEquipo()" autocomplete="off"
+            style="padding-right:40px;"/>
+          <div id="campoBuscarResults" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--coal);border:1px solid rgba(255,255,255,.1);border-radius:var(--rs);z-index:200;max-height:200px;overflow-y:auto;"></div>
+        </div>
+        <button class="btn-save" onclick="goTab('equipos')" style="padding:10px 18px;white-space:nowrap;">
+          📋 Ver equipos
+        </button>
+      </div>
+    </div>
+    <!-- 4 tarjetas horizontales -->
+    <div class="dash-kpi" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;align-items:start;width:100%;box-sizing:border-box;">
+
+      <!-- Tarjeta 1: Total Equipos -->
+      <div style="background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:24px;text-align:center;">
+        <div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--mist);margin-bottom:8px;">Total de Equipos</div>
+        <div id="sTot" style="font-family:'Syne',sans-serif;font-size:56px;font-weight:800;color:var(--fire);line-height:1;">—</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px;">
+          <div style="background:var(--coal);border-radius:var(--rs);padding:10px;">
+            <div style="font-size:9px;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;">✓ OK</div>
+            <div id="sOk" style="font-size:20px;font-weight:700;color:var(--ok);font-family:'Syne',sans-serif;">—</div>
+          </div>
+          <div style="background:var(--coal);border-radius:var(--rs);padding:10px;">
+            <div style="font-size:9px;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;">⚠ Obs/Crit</div>
+            <div id="sWarn" style="font-size:20px;font-weight:700;color:var(--warn);font-family:'Syne',sans-serif;">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tarjeta 2: Total Inspecciones -->
+      <div style="background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:24px;text-align:center;">
+        <div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--mist);margin-bottom:4px;">Total de Inspecciones</div>
+        <div style="font-size:10px;color:var(--mist);margin-bottom:6px;" id="dashMesLabel"></div>
+        <div id="iTot" style="font-family:'Syne',sans-serif;font-size:56px;font-weight:800;color:var(--fire-l);line-height:1;">—</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:16px;">
+          <div style="background:var(--coal);border-radius:var(--rs);padding:8px;">
+            <div style="font-size:9px;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;">✓ Exit</div>
+            <div id="iOk" style="font-size:20px;font-weight:700;color:var(--ok);font-family:'Syne',sans-serif;">—</div>
+          </div>
+          <div style="background:var(--coal);border-radius:var(--rs);padding:8px;">
+            <div style="font-size:9px;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;">⚠ Obs</div>
+            <div id="iWarn" style="font-size:20px;font-weight:700;color:var(--warn);font-family:'Syne',sans-serif;">—</div>
+          </div>
+          <div style="background:var(--coal);border-radius:var(--rs);padding:8px;">
+            <div style="font-size:9px;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;">✗ Crit</div>
+            <div id="iCrit" style="font-size:20px;font-weight:700;color:var(--ng);font-family:'Syne',sans-serif;">—</div>
+          </div>
+        </div>
+        <div style="height:5px;border-radius:3px;background:rgba(255,255,255,.08);margin-top:12px;overflow:hidden;display:flex;">
+          <div id="barOk"   style="background:var(--ok);height:100%;transition:width .6s;width:0%"></div>
+          <div id="barWarn" style="background:var(--warn);height:100%;transition:width .6s;width:0%"></div>
+          <div id="barCrit" style="background:var(--ng);height:100%;transition:width .6s;width:0%"></div>
+        </div>
+      </div>
+
+      <!-- Tarjeta 3: Inspecciones por tipo -->
+      <div style="background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:20px;">
+        <div class="sec-title" style="margin-bottom:14px;">Inspecciones por tipo de equipo</div>
+        <div id="graficaTipo"></div>
+
+      </div>
+
+      <!-- Tarjeta 4: Inspecciones por planta -->
+      <div style="background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:20px;">
+        <div class="sec-title" style="margin-bottom:14px;">Inspecciones por planta</div>
+        <div id="graficaPlanta"></div>
+      </div>
+
+    </div>
+
+  </div>
+    <!-- EQUIPOS -->
+  <div id="pEquipos" style="display:none;flex:1;">
+    <div class="main">
+      <div class="pg-title">Equipos registrados</div>
+      <div class="pg-sub">Selecciona un equipo para ver su ficha o registrar una inspección</div>
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+        <select class="fi" id="filtroTipo" onchange="loadEquipos()" style="width:auto;padding:9px 14px;">
+          <option value="">Todos los tipos</option>
+          <option value="extintor">🧯 Extintores</option>
+          <option value="hidrante">🚒 Hidrantes</option>
+          <option value="traje_bomberos">🧥 Trajes Bomberos</option>
+          <option value="camilla">🛏 Camillas</option>
+          <option value="regadera">🚿 Regaderas/Lavaojos</option>
+        </select>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>No. Serie</th><th>Área</th><th>Tipo</th><th>Cliente</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="tbEquipos"></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- FICHA -->
+  <div id="pFicha" style="display:none;flex:1;">
+    <div class="ficha-hero">
+      <div class="qr-bar" style="max-width:860px;margin-left:auto;margin-right:auto;margin-bottom:16px;">
+        <span>📷</span><span>Ficha — <strong id="fichaUrl" style="color:var(--fire-l)"></strong></span>
+      </div>
+      <div class="ficha-hdr">
+        <div class="ficha-ico" id="fichaIco">🔥</div>
+        <div style="flex:1">
+          <div class="ficha-id" id="fichaSerie">—</div>
+          <div class="ficha-nm" id="fichaNombre">—</div>
+          <div class="ficha-ar" id="fichaArea">—</div>
+        </div>
+        <div class="fstatus fs-ok" id="fichaStatus">—</div>
+      </div>
+    </div>
+    <div class="ficha-body">
+      <div id="fichaTipoBadge"></div>
+      <div class="info-grid" id="fichaInfoGrid"></div>
+      <div class="sec-title">Estado de componentes</div>
+      <div class="chk-grid" id="fichaChklist"></div>
+      <div class="sec-title">Observaciones</div>
+      <div class="obs-box" id="fichaObs">Sin observaciones.</div>
+      <div class="sec-title">Historial</div>
+      <div class="hist-list" id="fichaHist"></div>
+      <div id="btnInspWrap">
+        <button class="btn-inspect" onclick="goTab('form')">📋 Registrar inspección</button>
+      </div>
+      <div id="btnEliminarEquipoWrap" style="display:none;margin-bottom:10px;">
+        <button class="btn-s" onclick="eliminarEquipoDesde('ficha')" style="color:var(--ng);border-color:var(--ng);width:100%;padding:12px;">
+          🗑 Eliminar este equipo
+        </button>
+      </div>
+      <button class="btn-s" onclick="goTab('equipos')" style="margin-bottom:24px;">← Volver</button>
+    </div>
+  </div>
+
+  <!-- FORMULARIO (dinámico por tipo) -->
+  <div id="pForm" style="display:none;flex:1;">
+    <div class="form-wrap">
+      <button class="btn-s" onclick="goTab('ficha')" style="margin-bottom:14px;">← Volver</button>
+      <div class="pg-title" id="formTitle">Inspección mensual</div>
+      <div class="pg-sub" id="formSub">—</div>
+      <div id="formSuccess" style="display:none">
+        <div class="suc-screen">
+          <div class="suc-ico">✅</div>
+          <div class="suc-title">¡Inspección guardada!</div>
+          <div class="suc-sub">Los datos fueron registrados correctamente.</div>
+          <button class="btn-inspect" onclick="goTab('ficha')" style="font-size:13px;padding:11px 22px;">Ver ficha</button>
+        </div>
+      </div>
+      <div id="formMain"></div>
+    </div>
+  </div>
+
+  <!-- REPORTES -->
+  <div id="pReportes" style="display:none;flex:1;">
+    <div class="main">
+      <div class="pg-title">Reportes</div>
+      <div class="pg-sub">Exporta inspecciones a Excel por cliente, mes y tipo de equipo</div>
+      <div style="background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:24px;margin-bottom:24px;">
+        <div class="sec-title" style="margin-bottom:18px;">Filtros de reporte</div>
+        <div class="fgrid">
+          <div class="ff">
+            <label class="fl">Cliente</label>
+            <select class="fs" id="rCliente" onchange="loadPlantasSelect(this.value,'rPlanta')"><option value="">— Todos los clientes —</option></select>
+          </div>
+          <div class="ff">
+            <label class="fl">Planta</label>
+            <select class="fs" id="rPlanta"><option value="">— Todas las plantas —</option></select>
+          </div>
+          <div class="ff">
+            <label class="fl">Mes</label>
+            <input class="fi" type="month" id="rMes"/>
+          </div>
+          <div class="ff">
+            <label class="fl">Tipo de equipo</label>
+            <select class="fs" id="rTipo">
+              <option value="">— Todos los tipos —</option>
+              <option value="extintor">🧯 Extintores</option>
+              <option value="hidrante">🚒 Hidrantes</option>
+              <option value="traje_bomberos">🧥 Trajes Bomberos</option>
+              <option value="camilla">🛏 Camillas</option>
+              <option value="regadera">🚿 Regaderas/Lavaojos</option>
+            </select>
+          </div>
+          <div class="ff" style="justify-content:flex-end;padding-top:20px;">
+            <button class="btn-s fire" onclick="buscarReporte()" style="padding:11px 20px;font-size:14px;">🔍 Buscar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resultados -->
+      <div id="rResultados" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+          <div class="sec-title" style="margin:0" id="rTitulo">Resultados</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn-inspect" onclick="exportarExcel()" style="padding:10px 20px;font-size:13px;margin:0;">
+              📥 Descargar Excel
+            </button>
+            <button class="btn-inspect" onclick="exportarPDF()" style="padding:10px 20px;font-size:13px;margin:0;background:var(--fire);border-color:var(--fire);">
+              📄 Descargar PDF
+            </button>
+          </div>
+        </div>
+        <div class="tbl-wrap" style="overflow-x:auto;">
+          <table id="rTabla">
+            <thead id="rThead"></thead>
+            <tbody id="rTbody"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;font-size:12px;color:var(--mist)" id="rConteo"></div>
+      </div>
+      <div id="rVacio" style="display:none;" class="empty">No se encontraron inspecciones con los filtros seleccionados.</div>
+    </div>
+  </div>
+
+  <!-- ADMIN -->
+  <!-- PÁGINA AYUDANTE: registro simplificado de equipo en campo -->
+  <div id="pAyudante" style="display:none;flex:1;flex-direction:column;align-items:center;padding:24px 16px;">
+    <div style="width:100%;max-width:520px;">
+      <div class="pg-title" style="margin-bottom:4px;">📋 Registrar Equipo</div>
+      <div class="pg-sub" style="margin-bottom:24px;">Llena los datos del equipo en campo</div>
+
+      <div class="form-wrap" style="display:flex;flex-direction:column;gap:14px;">
+
+        <div class="ff">
+          <label class="fl">Cliente</label>
+          <select class="fi" id="ayCliente" onchange="loadPlantasSelect(this.value,'ayPlanta')">
+            <option value="">— Sin cliente —</option>
+          </select>
+        </div>
+
+        <div class="ff">
+          <label class="fl">Planta</label>
+          <select class="fi" id="ayPlanta">
+            <option value="">— Sin planta —</option>
+          </select>
+        </div>
+
+        <div class="ff">
+          <label class="fl">Área / Ubicación *</label>
+          <input class="fi" id="ayArea" type="text" placeholder="Ej. Planta Baja, Pasillo Norte">
+        </div>
+
+        <div class="ff">
+          <label class="fl">Sub área</label>
+          <input class="fi" id="aySubArea" type="text" placeholder="Ej. Pasillo Norte, Nivel 2...">
+        </div>
+
+        <div class="ff">
+          <label class="fl">Tipo de equipo *</label>
+          <select class="fi" id="ayTipo" onchange="ayudanteChangeTipo()">
+            <option value="">— Selecciona —</option>
+            <option value="extintor">🧯 Extintor</option>
+            <option value="hidrante">🚒 Hidrante</option>
+            <option value="traje_bomberos">🧥 Traje de bomberos</option>
+            <option value="camilla">🛏 Camilla</option>
+            <option value="regadera">🚿 Regadera de emergencia</option>
+          </select>
+        </div>
+
+        <div class="ff">
+          <label class="fl">Número de serie *</label>
+          <input class="fi" id="ayNoSerie" type="text" placeholder="Ej. EXT-001" style="text-transform:uppercase;">
+        </div>
+
+        <div class="ff">
+          <label class="fl">Marca</label>
+          <input class="fi" id="ayMarca" type="text" placeholder="Ej. Amerex, Kidde">
+        </div>
+
+        <div class="ff" id="ayCapacidadWrap" style="display:none;">
+          <label class="fl">Capacidad</label>
+          <input class="fi" id="ayCapacidad" type="text" placeholder="Ej. 6kg, 9L">
+        </div>
+
+        <div class="ff" id="ayAgentWrap" style="display:none;">
+          <label class="fl">Agente extintor</label>
+          <select class="fi" id="ayAgente">
+            <option value="">— Selecciona —</option>
+            <option value="PQS">PQS (Polvo Químico Seco)</option>
+            <option value="CO2">CO2</option>
+            <option value="AFFF">AFFF (Espuma)</option>
+            <option value="Halon">Halon</option>
+            <option value="Agua">Agua</option>
+          </select>
+        </div>
+
+        <div class="ff">
+          <label class="fl">Fecha de fabricación</label>
+          <input class="fi" id="ayFabricacion" type="month">
+        </div>
+
+        <div class="ff">
+          <label class="fl">Observaciones</label>
+          <textarea class="fi" id="ayObservaciones" rows="2" placeholder="Notas adicionales..."></textarea>
+        </div>
+
+        <div class="ff">
+          <label class="fl">Foto del equipo</label>
+          <input class="fi" id="ayFoto" type="file" accept="image/*" capture="environment">
+        </div>
+
+        <button class="btn-save" onclick="saveEquipoAyudante()" style="margin-top:8px;">
+          💾 Guardar equipo
+        </button>
+
+      </div>
+    </div>
+  </div>
+
+  <div id="pAdmin" style="display:none;flex:1;">
+    <div class="main">
+      <div class="pg-title">Administración</div>
+      <div class="pg-sub">Gestiona clientes, plantas, equipos y usuarios del sistema</div>
+
+      <!-- SECCIÓN QR ACCESO PORTAL -->
+      <div style="background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:22px;margin-bottom:28px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+          <div>
+            <div class="sec-title" style="margin-bottom:4px;">🔗 QR de Acceso al Portal</div>
+            <div style="font-size:13px;color:var(--mist);">Imprime este QR para que los ayudantes accedan al portal desde campo</div>
+          </div>
+          <button class="btn-save" onclick="generarQRAcceso()" style="padding:10px 22px;font-size:14px;">
+            🖨️ Generar QR de acceso
+          </button>
+        </div>
+      </div>
+
+      <!-- SECCIÓN GENERADOR DE LOTES QR -->
+      <div style="background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:22px;margin-bottom:28px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+          <div>
+            <div class="sec-title" style="margin-bottom:4px;">🏷️ Generador de Etiquetas QR Vírgenes</div>
+            <div style="font-size:13px;color:var(--mist);">Genera lotes de QRs únicos para pegar en equipos antes de salir a campo</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+          <div class="ff" style="flex:1;min-width:140px;">
+            <label class="fl">Nomenclatura / Prefijo</label>
+            <input class="fi" id="qrPrefijo" value="AS" placeholder="Ej. TPGAC1" maxlength="10" style="text-transform:uppercase;">
+          </div>
+          <div class="ff" style="flex:1;min-width:120px;">
+            <label class="fl">Número inicial</label>
+            <input class="fi" id="qrInicio" type="number" value="1" min="1" max="9999">
+          </div>
+          <div class="ff" style="flex:1;min-width:120px;">
+            <label class="fl">Cantidad de etiquetas</label>
+            <input class="fi" id="qrCantidad" type="number" value="10" min="1" max="200">
+          </div>
+          <div class="ff" style="flex:1;min-width:160px;">
+            <label class="fl">Copias por código</label>
+            <select class="fi" id="qrCopias">
+              <option value="1">1 copia</option>
+              <option value="2" selected>2 copias (pared + extintor)</option>
+              <option value="3">3 copias</option>
+            </select>
+          </div>
+          <button class="btn-save" onclick="generarLoteQR()" style="padding:10px 22px;white-space:nowrap;">
+            🖨️ Generar e imprimir
+          </button>
+        </div>
+        <div style="font-size:11px;color:var(--mist);margin-top:8px;">
+          💡 Ejemplo: Prefijo "TPGAC1", inicio 1, cantidad 10 → genera TPGAC1-0001 al TPGAC1-0010, cada uno en 2 tantos
+        </div>
+      </div>
+
+      <!-- SECCIÓN CLIENTES -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div class="sec-title" style="margin:0">Clientes</div>
+        <button class="btn-s fire" onclick="toggleAddCliente()">+ Nuevo cliente</button>
+      </div>
+      <div id="addClienteForm" style="display:none;background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:22px;margin-bottom:16px;">
+        <div class="sec-title" style="margin-bottom:14px;">Nuevo cliente</div>
+        <div class="fgrid">
+          <div class="ff"><label class="fl">Nombre de la empresa</label><input class="fi" id="cNombre" placeholder="Empresa S.A. de C.V."/></div>
+          <div class="ff"><label class="fl">Contacto</label><input class="fi" id="cContacto" placeholder="Nombre del responsable"/></div>
+          <div class="ff"><label class="fl">Teléfono</label><input class="fi" id="cTelefono" placeholder="81 1234 5678"/></div>
+          <div class="ff"><label class="fl">Correo</label><input class="fi" id="cCorreo" placeholder="contacto@empresa.com"/></div>
+          <div class="ff full"><label class="fl">Dirección</label><input class="fi" id="cDireccion" placeholder="Calle, Colonia, Ciudad"/></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:14px;">
+          <button class="btn-cancel" style="flex:0;padding:10px 18px;" onclick="toggleAddCliente()">Cancelar</button>
+          <button class="btn-save" style="flex:0;padding:10px 20px;" onclick="saveCliente()">Guardar cliente</button>
+        </div>
+      </div>
+      <div class="tbl-wrap" style="margin-bottom:28px;">
+        <table>
+          <thead><tr><th>Empresa</th><th>Contacto</th><th>Teléfono</th><th>Correo</th><th>Plantas</th><th>Acciones</th></tr></thead>
+          <tbody id="tbClientes"></tbody>
+        </table>
+      </div>
+
+      <!-- Modal editar cliente -->
+      <div id="editClienteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;align-items:center;justify-content:center;">
+        <div style="background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:28px;width:100%;max-width:560px;margin:16px;">
+          <div class="sec-title" style="margin-bottom:18px;">Editar cliente</div>
+          <input type="hidden" id="eClienteId"/>
+          <div class="fgrid">
+            <div class="ff"><label class="fl">Nombre de la empresa</label><input class="fi" id="eNombre"/></div>
+            <div class="ff"><label class="fl">Contacto</label><input class="fi" id="eContacto"/></div>
+            <div class="ff"><label class="fl">Teléfono</label><input class="fi" id="eTelefono"/></div>
+            <div class="ff"><label class="fl">Correo</label><input class="fi" id="eCorreo"/></div>
+            <div class="ff full"><label class="fl">Dirección</label><input class="fi" id="eDireccion"/></div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:18px;">
+            <button class="btn-cancel" style="flex:0;padding:10px 18px;" onclick="closeEditCliente()">Cancelar</button>
+            <button class="btn-save" style="flex:0;padding:10px 20px;" onclick="updateCliente()">Guardar cambios</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECCIÓN EQUIPOS -->
+      <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
+        <button class="btn-s fire" onclick="toggleAddForm()">+ Nuevo equipo</button>
+        <button class="btn-s" onclick="loadAdminTable()">↺ Actualizar</button>
+      </div>
+      <div id="addEquipoForm" style="display:none;background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:22px;margin-bottom:20px;">
+        <div class="sec-title" style="margin-bottom:14px;">Nuevo equipo</div>
+        <div class="fgrid">
+          <div class="ff"><label class="fl">Cliente</label>
+            <select class="fs" id="aCliente" onchange="loadPlantasSelect(this.value,'aPlanta')"><option value="">— Sin cliente —</option></select>
+          </div>
+          <div class="ff"><label class="fl">Planta</label>
+            <select class="fs" id="aPlanta"><option value="">— Sin planta —</option></select>
+          </div>
+          <div class="ff"><label class="fl">Área / Departamento *</label><input class="fi" id="aArea" placeholder="Planta Baja"/></div>
+          <div class="ff"><label class="fl">Sub área</label><input class="fi" id="aSubArea" placeholder="Ej. Pasillo Norte, Nivel 2..."/></div>
+          <div class="ff"><label class="fl">Tipo de equipo *</label>
+            <select class="fs" id="aTipo">
+              <option value="">— Selecciona —</option>
+              <option value="extintor">🧯 Extintor</option>
+              <option value="hidrante">🚒 Hidrante</option>
+              <option value="traje_bomberos">🧥 Traje Bomberos</option>
+              <option value="camilla">🛏 Camilla</option>
+              <option value="regadera">🚿 Regadera / Lavaojos</option>
+            </select>
+          </div>
+          <div class="ff"><label class="fl">No. de serie *</label><input class="fi" id="aSerie" placeholder="EXT-001"/></div>
+          <div class="ff"><label class="fl">Marca</label><input class="fi" id="aMarca" placeholder="Amerex, Kidde..."/></div>
+          <div class="ff"><label class="fl">Subtipo / Capacidad</label><input class="fi" id="aSubtipo" placeholder="PQS 9kg / Tipo II / Rígida..."/></div>
+          <div class="ff"><label class="fl">Fecha de fabricación</label><input class="fi" type="month" id="aFabricacion"/></div>
+          <div class="ff"><label class="fl">Próxima revisión</label><input class="fi" type="date" id="aProxRev"/></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:14px;">
+          <button class="btn-cancel" style="flex:0;padding:10px 18px;" onclick="toggleAddForm()">Cancelar</button>
+          <button class="btn-save" style="flex:0;padding:10px 20px;" onclick="saveEquipo()">Guardar</button>
+        </div>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>No. Serie</th><th>Área</th><th>Tipo</th><th>Cliente</th><th>Planta</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <tbody id="tbAdmin"></tbody>
+      </table></div>
+
+      <!-- Gestión de Plantas -->
+      <div style="margin-top:28px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div class="sec-title" style="margin:0">Plantas por cliente</div>
+          <button class="btn-s fire" onclick="toggleAddPlanta()">+ Nueva planta</button>
+        </div>
+        <div id="addPlantaForm" style="display:none;background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:20px;margin-bottom:16px;">
+          <div class="fgrid">
+            <div class="ff"><label class="fl">Cliente</label>
+              <select class="fs" id="pClienteId"><option value="">— Seleccionar —</option></select>
+            </div>
+            <div class="ff"><label class="fl">Nombre de la planta</label><input class="fi" id="pNombre" placeholder="Planta Escobedo"/></div>
+            <div class="ff"><label class="fl">Ciudad</label><input class="fi" id="pCiudad" placeholder="Escobedo, NL"/></div>
+            <div class="ff"><label class="fl">Contacto</label><input class="fi" id="pContacto" placeholder="Nombre del responsable"/></div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:14px;">
+            <button class="btn-cancel" style="flex:0;padding:10px 18px;" onclick="toggleAddPlanta()">Cancelar</button>
+            <button class="btn-save" style="flex:0;padding:10px 20px;" onclick="savePlanta()">Guardar planta</button>
+          </div>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Planta</th><th>Cliente</th><th>Ciudad</th><th>Contacto</th></tr></thead>
+          <tbody id="tbPlantas"></tbody>
+        </table></div>
+      </div>
+
+      <!-- USUARIOS -->
+      <div style="margin-top:28px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div class="sec-title" style="margin:0">Usuarios del sistema</div>
+          <button class="btn-s fire" onclick="toggleAddUsuario()">+ Nuevo usuario</button>
+        </div>
+        <div id="addUsuarioForm" style="display:none;background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:22px;margin-bottom:16px;">
+          <div class="sec-title" style="margin-bottom:14px;">Nuevo usuario</div>
+          <div style="background:rgba(55,138,221,.1);border:1px solid rgba(55,138,221,.2);border-radius:var(--rs);padding:12px;margin-bottom:16px;font-size:12px;color:#85B7EB;">
+            ℹ️ Primero crea el usuario en <strong>Supabase → Authentication → Users → Add user</strong>, luego pega el UUID aquí para asignarle su perfil y accesos.
+          </div>
+          <div class="fgrid">
+            <div class="ff full"><label class="fl">UUID del usuario (de Supabase Auth)</label><input class="fi" id="uUID" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"/></div>
+            <div class="ff"><label class="fl">Nombre completo</label><input class="fi" id="uNombre" placeholder="Juan Pérez"/></div>
+            <div class="ff"><label class="fl">Rol</label>
+              <select class="fs" id="uRol" onchange="toggleUsuarioCliente()">
+                <option value="tecnico">🔧 Técnico</option>
+                <option value="supervisor">👁️ Supervisor</option>
+                <option value="ayudante">🏗️ Ayudante (registro en campo)</option>
+                <option value="cliente">👤 Cliente</option>
+                <option value="admin">⚙️ Administrador</option>
+              </select>
+            </div>
+            <div class="ff" id="uClienteWrap"><label class="fl">Cliente</label>
+              <select class="fs" id="uCliente" onchange="loadPlantasSelect(this.value,'uPlanta')"><option value="">— Sin cliente —</option></select>
+            </div>
+            <div class="ff" id="uPlantaWrap"><label class="fl">Planta (solo para rol cliente)</label>
+              <select class="fs" id="uPlanta"><option value="">— Sin planta específica —</option></select>
+            </div>
+            <div class="ff"><label class="fl">No. empleado</label><input class="fi" id="uNumEmp" placeholder="EMP-001 (opcional)"/></div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:14px;">
+            <button class="btn-cancel" style="flex:0;padding:10px 18px;" onclick="toggleAddUsuario()">Cancelar</button>
+            <button class="btn-save" style="flex:0;padding:10px 20px;" onclick="saveUsuario()">Guardar perfil</button>
+          </div>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Cliente</th><th>Planta</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <tbody id="tbUsuarios"></tbody>
+        </table></div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+const SUPA_URL = 'https://aidawdimcqxuqgcurrfb.supabase.co';
+const SUPA_KEY = 'sb_publishable_WDwZrSdH3P1MvJeobpfb0Q_33cmbnrn';
+const { createClient } = supabase;
+const db = createClient(SUPA_URL, SUPA_KEY);
+
+let currentUser = null, currentPerfil = null, currentEquipo = null;
+
+// ── TIPO CONFIG ──
+const TIPOS = {
+  extintor:       { label: 'Extintor',          icon: '🧯', badge: 'tb-extintor',  tabla: 'insp_extintores' },
+  hidrante:       { label: 'Hidrante',           icon: '🚒', badge: 'tb-hidrante',  tabla: 'insp_hidrantes' },
+  traje_bomberos: { label: 'Traje Bomberos',     icon: '🧥', badge: 'tb-traje',     tabla: 'insp_traje_bomberos' },
+  camilla:        { label: 'Camilla',            icon: '🛏', badge: 'tb-camilla',   tabla: 'insp_camillas' },
+  regadera:       { label: 'Regadera/Lavaojos',  icon: '🚿', badge: 'tb-regadera',  tabla: 'insp_regaderas' },
+};
+
+// ── AUTH ──
+async function init() {
+  loader(true);
+  const { data: { session } } = await db.auth.getSession();
+  if (session) {
+    await loadPerfil(session.user);
+    showApp();
+    const urlParams = new URLSearchParams(window.location.search);
+    const qrCode = urlParams.get('qr');
+    if (qrCode) await handleQRScan(qrCode);
+  } else {
+    const urlParams = new URLSearchParams(window.location.search);
+    const qrCode = urlParams.get('qr');
+    if (qrCode) sessionStorage.setItem('pendingQR', qrCode);
+  }
+  loader(false);
+}
+
+async function doLogin() {
+  const email = document.getElementById('inEmail').value.trim();
+  const pass  = document.getElementById('inPass').value;
+  const err   = document.getElementById('loginErr');
+  err.style.display = 'none';
+  loader(true);
+  const { data, error } = await db.auth.signInWithPassword({ email, password: pass });
+  loader(false);
+  if (error) { err.textContent = 'Correo o contraseña incorrectos.'; err.style.display = 'block'; return; }
+  await loadPerfil(data.user);
+  showApp();
+}
+
+async function loadPerfil(user) {
+  currentUser = user;
+  const { data } = await db.from('perfiles').select('*').eq('id', user.id).single();
+  currentPerfil = data;
+}
+
+// ── REPORTES ──
+let reporteData = [];
+
+// ── PLANTAS ──
+async function loadPlantasSelect(clienteId, selectId) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Sin planta —</option>';
+  if (!clienteId) return;
+  const { data } = await db.from('plantas').select('id,nombre').eq('cliente_id', clienteId).eq('activo', true);
+  if (data?.length) {
+    sel.innerHTML = '<option value="">— Sin planta —</option>' +
+      data.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+  }
+}
+
+async function loadPlantasAdmin() {
+  const { data } = await db.from('plantas').select('*,clientes(nombre)').eq('activo',true).order('created_at',{ascending:false});
+  const tbody = document.getElementById('tbPlantas');
+  if (!tbody) return;
+  if (!data?.length) { tbody.innerHTML='<tr><td colspan="4" class="empty">Sin plantas registradas</td></tr>'; return; }
+  tbody.innerHTML = data.map(p => `<tr>
+    <td style="font-weight:500">${p.nombre}</td>
+    <td>${p.clientes?.nombre||'—'}</td>
+    <td>${p.ciudad||'—'}</td>
+    <td>${p.contacto||'—'}</td>
+  </tr>`).join('');
+}
+
+function toggleAddForm() {
+  const f = document.getElementById('addEquipoForm');
+  f.style.display = f.style.display==='none' ? 'block' : 'none';
+}
+
+function toggleAddCliente() {
+  const f = document.getElementById('addClienteForm');
+  f.style.display = f.style.display==='none' ? 'block' : 'none';
+}
+
+async function saveCliente() {
+  const payload = {
+    nombre:    document.getElementById('cNombre').value.trim(),
+    contacto:  document.getElementById('cContacto').value.trim(),
+    telefono:  document.getElementById('cTelefono').value.trim(),
+    correo:    document.getElementById('cCorreo').value.trim(),
+    direccion: document.getElementById('cDireccion').value.trim(),
+  };
+  if (!payload.nombre) { showToast('⚠ El nombre es obligatorio', true); return; }
+  loader(true);
+  const { error } = await db.from('clientes').insert(payload);
+  loader(false);
+  if (error) { showToast('❌ Error: '+error.message, true); return; }
+  showToast('✅ Cliente guardado');
+  toggleAddCliente();
+  loadClientesAdmin();
+  loadClientesSelect();
+}
+
+async function loadClientesAdmin() {
+  const { data } = await db.from('clientes').select('*').eq('activo',true).order('nombre');
+  const tbody = document.getElementById('tbClientes');
+  if (!tbody) return;
+  if (!data?.length) { tbody.innerHTML='<tr><td colspan="6" class="empty">Sin clientes registrados</td></tr>'; return; }
+  for (const c of data) {
+    const { count } = await db.from('plantas').select('*', {count:'exact',head:true}).eq('cliente_id',c.id);
+    c._plantas = count||0;
+  }
+  tbody.innerHTML = data.map(c=>`<tr>
+    <td style="font-weight:500">${c.nombre}</td>
+    <td>${c.contacto||'—'}</td>
+    <td>${c.telefono||'—'}</td>
+    <td>${c.correo||'—'}</td>
+    <td><span class="badge b-ok">${c._plantas} planta${c._plantas!==1?'s':''}</span></td>
+    <td><button class="btn-s fire" onclick='openEditCliente(${JSON.stringify(c)})'>✏️ Editar</button></td>
+  </tr>`).join('');
+}
+
+function openEditCliente(c) {
+  document.getElementById('eClienteId').value  = c.id;
+  document.getElementById('eNombre').value     = c.nombre||'';
+  document.getElementById('eContacto').value   = c.contacto||'';
+  document.getElementById('eTelefono').value   = c.telefono||'';
+  document.getElementById('eCorreo').value     = c.correo||'';
+  document.getElementById('eDireccion').value  = c.direccion||'';
+  document.getElementById('editClienteModal').style.display = 'flex';
+}
+
+function closeEditCliente() {
+  document.getElementById('editClienteModal').style.display = 'none';
+}
+
+async function updateCliente() {
+  const id = document.getElementById('eClienteId').value;
+  const payload = {
+    nombre:    document.getElementById('eNombre').value.trim(),
+    contacto:  document.getElementById('eContacto').value.trim(),
+    telefono:  document.getElementById('eTelefono').value.trim(),
+    correo:    document.getElementById('eCorreo').value.trim(),
+    direccion: document.getElementById('eDireccion').value.trim(),
+  };
+  if (!payload.nombre) { showToast('⚠ El nombre es obligatorio', true); return; }
+  loader(true);
+  const { error } = await db.from('clientes').update(payload).eq('id', id);
+  loader(false);
+  if (error) { showToast('❌ Error: '+error.message, true); return; }
+  showToast('✅ Cliente actualizado');
+  closeEditCliente();
+  loadClientesAdmin();
+  loadClientesSelect();
+}
+
+// ── USUARIOS ──
+function toggleAddUsuario() {
+  const f = document.getElementById('addUsuarioForm');
+  f.style.display = f.style.display==='none' ? 'block' : 'none';
+  if (f.style.display==='block') {
+    // Cargar clientes en el select de usuarios
+    db.from('clientes').select('id,nombre').eq('activo',true).order('nombre').then(({data}) => {
+      const sel = document.getElementById('uCliente');
+      if (sel && data) {
+        sel.innerHTML = '<option value="">— Sin cliente —</option>' +
+          data.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+      }
+    });
+    toggleUsuarioCliente();
+  }
+}
+
+function toggleUsuarioCliente() {
+  const rol = document.getElementById('uRol').value;
+  const show = rol === 'cliente' || rol === 'tecnico';
+  document.getElementById('uClienteWrap').style.display = show ? 'flex' : 'none';
+  document.getElementById('uPlantaWrap').style.display = rol === 'cliente' ? 'flex' : 'none';
+}
+
+async function saveUsuario() {
+  const userId   = document.getElementById('uUID').value.trim();
+  const nombre   = document.getElementById('uNombre').value.trim();
+  const rol      = document.getElementById('uRol').value;
+  const clienteId= document.getElementById('uCliente').value || null;
+  const plantaId = document.getElementById('uPlanta').value || null;
+  const numEmp   = document.getElementById('uNumEmp').value.trim();
+
+  if (!userId || !nombre) { showToast('⚠ UUID y nombre son obligatorios', true); return; }
+  if (!/^[0-9a-f-]{36}$/.test(userId)) { showToast('⚠ El UUID no tiene el formato correcto', true); return; }
+
+  loader(true);
+  const { error } = await db.from('perfiles').insert({
+    id: userId,
+    nombre,
+    rol,
+    cliente_id: clienteId,
+    planta_id:  rol === 'cliente' ? plantaId : null,
+    numero_empleado: numEmp || null,
+  });
+  loader(false);
+  if (error) { showToast('❌ Error: '+error.message, true); return; }
+  showToast('✅ Perfil de usuario guardado correctamente');
+  toggleAddUsuario();
+  loadUsuariosAdmin();
+}
+
+async function loadUsuariosAdmin() {
+  const { data } = await db.from('perfiles')
+    .select('*, clientes(nombre), plantas(nombre)')
+    .order('created_at', { ascending: false });
+  const tbody = document.getElementById('tbUsuarios');
+  if (!tbody) return;
+  if (!data?.length) { tbody.innerHTML='<tr><td colspan="7" class="empty">Sin usuarios registrados</td></tr>'; return; }
+  tbody.innerHTML = data.map(u => {
+    const rolColor = u.rol==='admin'?'r-admin':u.rol==='tecnico'?'r-tecnico':'r-cliente';
+    const rolIcon  = u.rol==='admin'?'⚙️':u.rol==='tecnico'?'🔧':'👤';
+    return `<tr>
+      <td style="font-weight:500">${u.nombre}</td>
+      <td style="font-size:12px;color:var(--mist)">${u.id.substring(0,8)}...</td>
+      <td><span class="rbadge ${rolColor}">${rolIcon} ${u.rol}</span></td>
+      <td>${u.clientes?.nombre||'—'}</td>
+      <td>${u.plantas?.nombre||'—'}</td>
+      <td><span class="badge b-ok">Activo</span></td>
+      <td><button class="btn-s" onclick='editUsuario(${JSON.stringify(u)})'>✏️ Editar</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function editUsuario(u) {
+  // Llenar el modal de edición
+  document.getElementById('eUserId').value   = u.id;
+  document.getElementById('eUserNombre').value = u.nombre||'';
+  document.getElementById('eUserNumero').value = u.numero_empleado||'';
+  document.getElementById('eUserRol').value  = u.rol||'tecnico';
+  document.getElementById('eUserPass').value = '';
+  
+  // Mostrar/ocultar campo planta según rol
+  const rolSel = document.getElementById('eUserRol');
+  toggleEditPlantaWrap(u.rol);
+  
+  // Cargar clientes en el select de edición
+  db.from('clientes').select('id,nombre').eq('activo',true).then(({data})=>{
+    const sel = document.getElementById('eUserCliente');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— Sin cliente —</option>' +
+      (data||[]).map(c=>`<option value="${c.id}"${c.id===u.cliente_id?' selected':''}>${c.nombre}</option>`).join('');
+    if (u.cliente_id) loadPlantasSelect(u.cliente_id, 'eUserPlanta');
+  });
+
+  document.getElementById('modalEditUser').style.display = 'flex';
+}
+
+function toggleEditPlantaWrap(rol) {
+  const wrap = document.getElementById('eUserPlantaWrap');
+  if (wrap) wrap.style.display = rol==='cliente' ? 'flex' : 'none';
+}
+
+async function saveEditUsuario() {
+  const id      = document.getElementById('eUserId').value;
+  const nombre  = document.getElementById('eUserNombre').value.trim();
+  const numero  = document.getElementById('eUserNumero').value.trim();
+  const rol     = document.getElementById('eUserRol').value;
+  const pass    = document.getElementById('eUserPass').value.trim();
+  const cliente = document.getElementById('eUserCliente')?.value||null;
+  const planta  = document.getElementById('eUserPlanta')?.value||null;
+
+  if (!nombre) { showToast('⚠ El nombre es obligatorio', true); return; }
+
+  loader(true);
+
+  // Actualizar perfil
+  const { error } = await db.from('perfiles').update({
+    nombre,
+    numero_empleado: numero||null,
+    rol,
+    cliente_id: rol==='cliente' ? cliente : null,
+    planta_id:  rol==='cliente' ? planta  : null,
+  }).eq('id', id);
+
+  if (error) { loader(false); showToast('❌ Error: '+error.message, true); return; }
+
+  loader(false);
+  document.getElementById('modalEditUser').style.display = 'none';
+
+  if (pass) {
+    showToast('✅ Perfil actualizado. Para cambiar contraseña ve a Supabase → Authentication → Users');
+    // Copiar instrucción al clipboard
+    navigator.clipboard?.writeText(`UPDATE auth.users SET encrypted_password = crypt('${pass}', gen_salt('bf')) WHERE id = '${id}';`);
+    setTimeout(()=>showToast('📋 SQL copiado al portapapeles para cambiar contraseña'), 2000);
+  } else {
+    showToast('✅ Usuario actualizado correctamente');
+  }
+  loadUsuariosAdmin();
+}
+
+function toggleAddPlanta() {
+  const f = document.getElementById('addPlantaForm');
+  f.style.display = f.style.display==='none' ? 'block' : 'none';
+  if (f.style.display==='block') {
+    // Cargar clientes en el select de plantas
+    db.from('clientes').select('id,nombre').eq('activo',true).then(({data}) => {
+      const sel = document.getElementById('pClienteId');
+      if (data) sel.innerHTML = '<option value="">— Seleccionar —</option>' +
+        data.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+    });
+  }
+}
+
+async function savePlanta() {
+  const payload = {
+    cliente_id: document.getElementById('pClienteId').value,
+    nombre:     document.getElementById('pNombre').value.trim(),
+    ciudad:     document.getElementById('pCiudad').value.trim(),
+    contacto:   document.getElementById('pContacto').value.trim(),
+  };
+  if (!payload.cliente_id || !payload.nombre) { showToast('⚠ Cliente y nombre son obligatorios', true); return; }
+  loader(true);
+  const { error } = await db.from('plantas').insert(payload);
+  loader(false);
+  if (error) { showToast('❌ Error: '+error.message, true); return; }
+  showToast('✅ Planta guardada');
+  toggleAddPlanta();
+  loadPlantasAdmin();
+}
+
+async function loadClientesSelect(targetId) {
+  const { data } = await db.from('clientes').select('id,nombre').eq('activo',true);
+  const targets = targetId ? [targetId] : ['aCliente','pClienteId'];
+  targets.forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— Sin cliente —</option>' +
+      (data||[]).map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+  });
+}
+
+async function loadAdminTable() {
+  const { data } = await db.from('equipos').select('*,clientes(nombre),plantas(nombre)').order('tipo').order('no_serie');
+  const tbody = document.getElementById('tbAdmin');
+  if (!data?.length) { tbody.innerHTML='<tr><td colspan="7" class="empty">Sin equipos</td></tr>'; return; }
+  tbody.innerHTML = data.map(e => {
+    const t = TIPOS[e.tipo]||{icon:'🔧',label:e.tipo};
+    return `<tr>
+      <td style="font-weight:500">${e.no_serie}</td>
+      <td>${e.area}</td>
+      <td>${t.icon} ${t.label}</td>
+      <td>${e.clientes?.nombre||'—'}</td>
+      <td>${e.plantas?.nombre||'—'}</td>
+      <td><span class="badge b-ok">Activo</span></td>
+      <td>
+        <button class="btn-s fire" onclick='verFicha(${JSON.stringify(e)})'>Ver</button>
+        <button class="btn-s" onclick="printQR('${e.id}','${e.no_serie}')">QR</button>
+        ${['admin','supervisor'].includes(currentPerfil?.rol) ? `<button class="btn-s" onclick="eliminarEquipo('${e.id}','${e.no_serie}')" style="color:var(--ng);border-color:var(--ng);">🗑</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function saveEquipo() {
+  const serieAdmin = document.getElementById('aSerie').value.trim();
+  const payload = {
+    no_serie:   serieAdmin,
+    area:       document.getElementById('aArea').value.trim(),
+    sub_area:   document.getElementById('aSubArea')?.value.trim()||null,
+    tipo:       document.getElementById('aTipo').value,
+    subtipo:    document.getElementById('aSubtipo').value.trim(),
+    marca:      document.getElementById('aMarca').value.trim(),
+    cliente_id: document.getElementById('aCliente').value||null,
+    planta_id:  document.getElementById('aPlanta').value||null,
+    fecha_fabricacion: document.getElementById('aFabricacion')?.value ? document.getElementById('aFabricacion').value+'-01' : null,
+    fecha_proxima_revision: document.getElementById('aProxRev').value||null,
+    qr_code: serieAdmin,
+  };
+  if (!payload.no_serie||!payload.area||!payload.tipo) { showToast('⚠ No. serie, Área y Tipo son obligatorios', true); return; }
+  loader(true);
+  const { error } = await db.from('equipos').insert(payload);
+  loader(false);
+  if (error) { showToast('❌ Error: '+error.message, true); return; }
+  showToast('✅ Equipo guardado');
+  toggleAddForm();
+  loadAdminTable();
+}
+
+async function initReportes() {
+  const { data } = await db.from('clientes').select('id,nombre').eq('activo',true);
+  const sel = document.getElementById('rCliente');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Todos los clientes —</option>' +
+    (data||[]).map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+  const now = new Date();
+  document.getElementById('rMes').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+}
+
+async function buscarReporte() {
+  const clienteId = document.getElementById('rCliente').value;
+  const plantaId  = document.getElementById('rPlanta')?.value || '';
+  const mes       = document.getElementById('rMes').value;
+  const tipo      = document.getElementById('rTipo').value;
+
+  loader(true);
+  reporteData = [];
+
+  const tablas = tipo ? [tipo] : ['extintor','hidrante','traje_bomberos','camilla','regadera'];
+  const tablaMap = {
+    extintor:'insp_extintores', hidrante:'insp_hidrantes',
+    traje_bomberos:'insp_traje_bomberos', camilla:'insp_camillas', regadera:'insp_regaderas'
+  };
+
+  for (const t of tablas) {
+    const tabla = tablaMap[t];
+    let q = db.from(tabla).select(`*, equipos(no_serie, area, tipo, subtipo, cliente_id, planta_id, clientes(nombre), plantas(nombre))`);
+    if (mes) {
+      const [y,m] = mes.split('-');
+      const inicio = `${y}-${m}-01`;
+      const fin    = `${y}-${m}-${new Date(y,m,0).getDate()}`;
+      q = q.gte('fecha_inspeccion', inicio).lte('fecha_inspeccion', fin);
+    }
+    const { data } = await q;
+    if (data?.length) {
+      const filtrado = data.filter(r => {
+        if (clienteId && r.equipos?.cliente_id !== clienteId) return false;
+        if (plantaId  && r.equipos?.planta_id  !== plantaId)  return false;
+        return true;
+      });
+      for (const r of filtrado) {
+        r._tipo = t;
+        // Cargar fotos de esta inspección
+        const { data: fotos } = await db.from('fotos_inspeccion').select('storage_path').eq('inspeccion_id', r.id);
+        r._fotos = fotos || [];
+        reporteData.push(r);
+      }
+    }
+  }
+
+  loader(false);
+
+  if (!reporteData.length) {
+    document.getElementById('rResultados').style.display = 'none';
+    document.getElementById('rVacio').style.display = 'block';
+    return;
+  }
+
+  document.getElementById('rVacio').style.display = 'none';
+  document.getElementById('rResultados').style.display = 'block';
+  document.getElementById('rConteo').textContent = `${reporteData.length} inspecciones encontradas`;
+
+  const clienteNombre = document.getElementById('rCliente').options[document.getElementById('rCliente').selectedIndex].text;
+  const plantaNombre  = document.getElementById('rPlanta')?.options[document.getElementById('rPlanta')?.selectedIndex]?.text || '';
+  document.getElementById('rTitulo').textContent = `${reporteData.length} inspecciones — ${clienteNombre}${plantaNombre && plantaNombre!=='— Todas las plantas —' ? ' / '+plantaNombre : ''}`;
+
+  const thead = document.getElementById('rThead');
+  const tbody = document.getElementById('rTbody');
+  thead.innerHTML = `<tr>
+    <th>Fecha</th><th>No. Serie</th><th>Área</th><th>Tipo</th><th>Cliente</th><th>Planta</th>
+    <th>Técnico</th><th>Estado</th><th>Observaciones</th><th></th>
+  </tr>`;
+  tbody.innerHTML = reporteData.map(r => {
+    const t = TIPOS[r._tipo]||{icon:'',label:r._tipo};
+    const est = r.estado==='ok'?'✓ OK':r.estado==='observacion'?'⚠ Obs':'✗ Crítico';
+    const estColor = r.estado==='ok'?'var(--ok)':r.estado==='observacion'?'var(--warn)':'var(--ng)';
+    const canDel = currentUser && (currentUser.role==='admin' || currentUser.id===r.tecnico_id);
+    const btnDel = canDel ? `<button onclick="deleteInspection('${r.id}','${r._tipo}')" style="background:none;border:1px solid var(--ng);color:var(--ng);cursor:pointer;font-size:12px;padding:3px 8px;border-radius:4px;" title="Eliminar">🗑 Borrar</button>` : '';
+    return `<tr>
+      <td>${r.fecha_inspeccion||'—'}</td>
+      <td style="font-weight:500">${r.equipos?.no_serie||'—'}</td>
+      <td>${r.equipos?.area||'—'}</td>
+      <td>${t.icon} ${t.label}</td>
+      <td>${r.equipos?.clientes?.nombre||'—'}</td>
+      <td>${r.equipos?.plantas?.nombre||'—'}</td>
+      <td>${r.tecnico_nombre||'—'}</td>
+      <td style="color:${estColor};font-weight:500">${est}</td>
+      <td style="max-width:200px;white-space:normal;font-size:12px">${r.observaciones||'—'}</td>
+      <td>${btnDel}</td>
+    </tr>`;
+  }).join('');
+}
+
+function exportarExcel() {
+  if (!reporteData.length) return;
+
+  const BOM = '\uFEFF';
+  const SUPA_STORAGE = 'https://aidawdimcqxuqgcurrfb.supabase.co/storage/v1/object/public/inspecciones/';
+
+  // Campos comunes + campos específicos por tipo
+  const getCampos = (r) => {
+    const t = r._tipo;
+    if (t==='extintor') return {
+      'Tipo Extintor': r.tipo_extintor||'',
+      'Capacidad': r.capacidad||'',
+      'Fecha Carga': r.fecha_carga||'',
+      'Fecha Vencimiento': r.fecha_vencimiento||'',
+      'Prueba Hidrostática': r.prueba_hidrostatica||'',
+      'Accesible': r.accesible||'',
+      'Señalizado': r.senalizado||'',
+      'Gabinete': r.gabinete||'',
+      'Carga': r.carga||'',
+      'Manguera/Boquilla': r.manguera_boquilla||'',
+      'Seguro/Cola de rata': r.seguro_cola_rata||'',
+      'Cilindro': r.cilindro||'',
+      'Collarín': r.estado_collarin||'',
+      'Llantas': r.estado_llantas||'',
+      'Tarjeta Inspección': r.tarjeta_inspeccion||'',
+      'Altura NOM-002': r.altura_nom002||'',
+      'Peso CO2': r.peso_co2||'',
+      'Delimitado': r.delimitado||'',
+    };
+    if (t==='hidrante') return {
+      'Tipo Hidrante': r.tipo_hidrante||'',
+      'Prueba Hidrostática': r.prueba_hidrostatica||'',
+      'Accesible': r.accesible||'',
+      'Señalizado': r.senalizado||'',
+      'Gabinete': r.gabinete||'',
+      'Manguera': r.manguera||'',
+      'Chiflón': r.chiflon||'',
+      'Coples': r.coples||'',
+      'Espuma': r.espuma||'',
+      'Instrucciones': r.instrucciones||'',
+      'Válvula': r.valvula||'',
+      'Delimitado': r.delimitado||'',
+    };
+    if (t==='traje_bomberos') return {
+      'Tipo Equipo': r.tipo_bombero||'',
+      'Accesible': r.accesible||'',
+      'Señalizado': r.senalizado||'',
+      'Gabinete': r.gabinete||'',
+      'Casco': r.casco||'',
+      'Pantalón': r.pantalon||'',
+      'Chaquetón': r.chaqueton||'',
+      'Monja': r.monja||'',
+      'Botas': r.botas||'',
+      'Guantes': r.guantes||'',
+      'SCBA': r.scba||'',
+      'Estado Equipo': r.estado_equipo||'',
+      'SCBA Cargado': r.cargado_scba||'',
+      'Delimitado': r.delimitado||'',
+    };
+    if (t==='camilla') return {
+      'Tipo Camilla': r.tipo_camilla||'',
+      'Accesible': r.accesible||'',
+      'Señalizada': r.senalizada||'',
+      'Gabinete': r.gabinete||'',
+      'Funda': r.funda||'',
+      'Sujeción': r.sujecion||'',
+      'Estado': r.estado_camilla||'',
+      'Inmovilización': r.inmovilizacion||'',
+      'Araña': r.arana||'',
+      'Pulpo': r.pulpo||'',
+      'Delimitado': r.delimitado||'',
+    };
+    if (t==='regadera') return {
+      'Tipo Regadera': r.tipo_regadera||'',
+      'Accesible': r.accesible||'',
+      'Señalizada': r.senalizada||'',
+      'Nivel Agua': r.nivel_agua||'',
+      'Velocidad Chorro': r.velocidad_chorro||'',
+      'Sin Contaminantes': r.libre_contaminantes||'',
+      'Altura Adecuada': r.altura_adecuada||'',
+      'Posición': r.posicion||'',
+      'Difusor': r.difusor||'',
+      'Rociadores': r.estado_rociadores||'',
+      'Tapón Rociadores': r.tapon_rociadores||'',
+      'Agua Buen Estado': r.agua_buen_estado||'',
+      'Delimitado': r.delimitado||'',
+    };
+    return {};
+  };
+
+  // Construir headers dinámicos — unión de todos los campos
+  const allCampos = new Set();
+  reporteData.forEach(r => Object.keys(getCampos(r)).forEach(k => allCampos.add(k)));
+  const camposArr = [...allCampos];
+
+  const headers = [
+    'Fecha','No. Serie','Área','Tipo','Cliente','Planta','Técnico','No. Empleado',
+    'Estado','Observaciones',
+    ...camposArr,
+    'Fotos'
+  ];
+
+  const rows = reporteData.map(r => {
+    const t    = TIPOS[r._tipo]||{label:r._tipo};
+    const est  = r.estado==='ok'?'OK':r.estado==='observacion'?'Observación':'Crítico';
+    const campos = getCampos(r);
+
+    // Fotos — construir URLs públicas
+    const fotosLinks = (r._fotos||[])
+      .map(f => SUPA_STORAGE + f.storage_path)
+      .join(' | ');
+
+    const base = [
+      r.fecha_inspeccion||'',
+      r.equipos?.no_serie||'',
+      r.equipos?.area||'',
+      t.label,
+      r.equipos?.clientes?.nombre||'',
+      r.equipos?.plantas?.nombre||'',
+      r.tecnico_nombre||'',
+      r.tecnico_numero||'',
+      est,
+      (r.observaciones||'').replace(/,/g,';'),
+    ];
+
+    const camposVals = camposArr.map(k => campos[k]||'');
+    return [...base, ...camposVals, fotosLinks].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
+  });
+
+  const csv = BOM + [headers.map(h=>`"${h}"`).join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const mes  = document.getElementById('rMes').value || 'reporte';
+  const cli  = document.getElementById('rCliente').options[document.getElementById('rCliente').selectedIndex].text;
+  a.href = url;
+  a.download = `AS_Industrial_${cli}_${mes}.csv`.replace(/\s+/g,'_');
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✅ Reporte descargado con checklist completo');
+}
+
+// ── PERFIL Y CONTRASEÑA ──
+function loadPerfil_UI() {
+  if (!currentPerfil) return;
+  document.getElementById('perfilAvatar').textContent = currentPerfil.nombre.charAt(0).toUpperCase();
+  document.getElementById('perfilNombre').textContent = currentPerfil.nombre;
+  const rb = document.getElementById('perfilRol');
+  rb.textContent = currentPerfil.rol;
+  rb.className = 'rbadge r-' + currentPerfil.rol;
+  document.getElementById('passErr').style.display = 'none';
+  document.getElementById('passOk').style.display = 'none';
+  document.getElementById('newPass').value = '';
+  document.getElementById('confirmPass').value = '';
+}
+
+async function changePassword() {
+  const newPass     = document.getElementById('newPass').value;
+  const confirmPass = document.getElementById('confirmPass').value;
+  const errEl       = document.getElementById('passErr');
+  const okEl        = document.getElementById('passOk');
+  errEl.style.display = 'none';
+  okEl.style.display  = 'none';
+  if (newPass.length < 6) {
+    errEl.textContent = 'La contraseña debe tener mínimo 6 caracteres.';
+    errEl.style.display = 'block'; return;
+  }
+  if (newPass !== confirmPass) {
+    errEl.textContent = 'Las contraseñas no coinciden.';
+    errEl.style.display = 'block'; return;
+  }
+  loader(true);
+  const { error } = await db.auth.updateUser({ password: newPass });
+  loader(false);
+  if (error) {
+    errEl.textContent = 'Error: ' + error.message;
+    errEl.style.display = 'block'; return;
+  }
+  okEl.style.display = 'block';
+  document.getElementById('newPass').value = '';
+  document.getElementById('confirmPass').value = '';
+}
+
+// ── RECUPERAR CONTRASEÑA (login) ──
+function showResetPanel() {
+  document.getElementById('panelLogin').style.display = 'none';
+  // Pre-cargar equipos en caché para uso offline
+  if (navigator.onLine) {
+    db.from('equipos').select('*,clientes(nombre)').eq('activo',true).order('tipo').order('no_serie')
+      .then(({ data }) => {
+        if (data?.length) {
+          localStorage.setItem('cachedEquipos', JSON.stringify(data));
+          localStorage.setItem('cachedEquiposTime', new Date().toISOString());
+        }
+      });
+  }
+  document.getElementById('panelReset').style.display = 'block';
+  document.getElementById('resetErr').style.display   = 'none';
+  document.getElementById('resetOk').style.display    = 'none';
+}
+
+function showLoginPanel() {
+  document.getElementById('panelReset').style.display = 'none';
+  document.getElementById('panelLogin').style.display = 'block';
+}
+
+async function doReset() {
+  const email = document.getElementById('resetEmail').value.trim();
+  const errEl = document.getElementById('resetErr');
+  const okEl  = document.getElementById('resetOk');
+  errEl.style.display = 'none';
+  okEl.style.display  = 'none';
+  if (!email) { errEl.textContent = 'Ingresa tu correo.'; errEl.style.display='block'; return; }
+  loader(true);
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: 'https://asindustrial-portal.vercel.app'
+  });
+  loader(false);
+  if (error) { errEl.textContent = 'Error: '+error.message; errEl.style.display='block'; return; }
+  okEl.style.display = 'block';
+}
+
+async function doLogout() {
+  await db.auth.signOut();
+  currentUser = null; currentPerfil = null;
+  document.getElementById('vApp').style.display = 'none';
+  document.getElementById('vLogin').style.display = 'flex';
+  document.getElementById('vLogin').classList.add('active');
+}
+
+function showApp() {
+  document.getElementById('vLogin').style.display = 'none';
+  const app = document.getElementById('vApp');
+  app.style.display = 'flex'; app.classList.add('active');
+  const p = currentPerfil;
+  if (!p) return;
+  document.getElementById('navName').textContent = p.nombre;
+  document.getElementById('navAv').textContent = p.nombre.charAt(0).toUpperCase();
+  const rb = document.getElementById('navRole');
+  rb.textContent = p.rol; rb.className = 'rbadge r-' + p.rol;
+  // ── Permisos por rol ──
+  const esAdmin      = ['admin','supervisor'].includes(p.rol);
+  const esTecnico    = p.rol === 'tecnico';
+  const esCliente    = p.rol === 'cliente';
+  const esAyudante   = p.rol === 'ayudante';
+
+  // Administrar: solo admin y supervisor
+  document.getElementById('tAdmin').style.display = esAdmin ? 'block' : 'none';
+  const mAdm = document.getElementById('mAdmin'); if(mAdm) mAdm.style.display = esAdmin ? 'block' : 'none';
+
+  // Reportes: admin, supervisor y cliente (no técnico)
+  const tRep = document.getElementById('tReportes'); if(tRep) tRep.style.display = esTecnico ? 'none' : 'block';
+  const mRep = document.getElementById('mReportes'); if(mRep) mRep.style.display = esTecnico ? 'none' : 'block';
+
+  // Equipos: todos menos cliente
+  const tEq = document.getElementById('tEquipos'); if(tEq) tEq.style.display = esCliente ? 'none' : 'block';
+  const mEq = document.getElementById('mEquipos'); if(mEq) mEq.style.display = esCliente ? 'none' : 'block';
+
+  // Botón inspeccionar: todos menos cliente
+  document.getElementById('btnInspWrap').style.display = esCliente ? 'none' : 'block';
+  document.getElementById('dashSub').textContent =
+    'Bienvenido, ' + p.nombre + ' — ' + new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+  // Si venía de un QR pendiente, procesarlo ahora
+  const pendingQR = sessionStorage.getItem('pendingQR');
+  if (pendingQR) {
+    sessionStorage.removeItem('pendingQR');
+    setTimeout(() => handleQRScan(pendingQR), 600);
+    return;
+  }
+
+  // Mostrar acceso rápido de campo para admin y técnico
+  const campoTools = document.getElementById('campoTools');
+  if (campoTools && ['admin','supervisor','tecnico'].includes(p.rol)) {
+    campoTools.style.display = 'block';
+  }
+
+  // Ayudantes van directo a su formulario de registro
+  if (p.rol === 'ayudante') {
+    // Ocultar tabs que no necesita
+    ['tDash','tEquipos','tReportes','tAdmin','mDash','mEquipos','mReportes','mAdmin'].forEach(id => {
+      const el = document.getElementById(id); if(el) el.style.display='none';
+    });
+    goTab('ayudante');
+    // Cargar clientes en el select del ayudante
+    loadClientesSelect('ayCliente');
+    // Verificar si hay equipo pendiente de inspección (segunda visita)
+    checkEquipoPendienteAyudante();
+  } else {
+    goTab('dash');
+    loadDashboard();
+  }
+}
+
+// ── NAVEGACIÓN ──
+var PAGES = ['Dash','Equipos','Ficha','Form','Admin','Reportes','Perfil','Ayudante'];
+function goTab(tab) {
+  PAGES.forEach(p => {
+    const el = document.getElementById('p'+p); if(el) el.style.display='none';
+    const tb = document.getElementById('t'+p); if(tb) tb.classList.remove('active');
+  });
+  const T = tab.charAt(0).toUpperCase()+tab.slice(1);
+  const el = document.getElementById('p'+T); if(el) el.style.display='flex';
+  const tb = document.getElementById('t'+T); if(tb) tb.classList.add('active');
+  if(tab==='equipos') loadEquipos();
+  if(tab==='admin')   { loadAdminTable(); loadClientesSelect(); loadPlantasAdmin(); loadClientesAdmin(); loadUsuariosAdmin(); }
+  if(tab==='reportes') initReportes();
+  if(tab==='form' && currentEquipo) renderForm();
+  if(tab==='perfil') loadPerfil_UI();
+}
+
+// ── DASHBOARD ──
+// ── EXPORTAR PDF ──
+function exportarPDF() {
+  if (!reporteData.length) { showToast('⚠ No hay datos para exportar', true); return; }
+  const mes = document.getElementById('rMes').value || '';
+  const cliSel = document.getElementById('rCliente');
+  const cli = cliSel.options[cliSel.selectedIndex]?.text || 'Todos';
+
+  const rows = reporteData.map(r => {
+    const t   = TIPOS[r._tipo]||{label:r._tipo, icon:'🔧'};
+    const est = r.estado==='ok'?'<span style="color:#2D9E6B;font-weight:700;">✓ OK</span>'
+              : r.estado==='observacion'?'<span style="color:#C48A10;font-weight:700;">⚠ Obs</span>'
+              : '<span style="color:#C42B2B;font-weight:700;">✗ Crítico</span>';
+    return `<tr>
+      <td>${r.fecha_inspeccion||'—'}</td>
+      <td><b>${r.equipos?.no_serie||'—'}</b></td>
+      <td>${r.equipos?.area||'—'}</td>
+      <td>${t.icon} ${t.label}</td>
+      <td>${r.equipos?.clientes?.nombre||'—'}</td>
+      <td>${r.equipos?.plantas?.nombre||'—'}</td>
+      <td>${r.tecnico_nombre||'—'}</td>
+      <td>${est}</td>
+      <td style="max-width:160px;white-space:normal;font-size:10px;">${r.observaciones||'—'}</td>
+    </tr>`;
+  }).join('');
+
+  const total = reporteData.length;
+  const ok    = reporteData.filter(r=>r.estado==='ok').length;
+  const obs   = reporteData.filter(r=>r.estado==='observacion').length;
+  const crit  = reporteData.filter(r=>r.estado==='critico').length;
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Reporte AS Industrial</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:Arial,sans-serif;font-size:11px;color:#1A1614;padding:20px;}
+    .header{background:#1A1614;color:#fff;padding:16px 20px;border-radius:8px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+    .header h1{font-size:18px;}.header h1 span{color:#E8390E;}
+    .header p{font-size:10px;color:#C4BBB8;margin-top:4px;}
+    .stats{display:flex;gap:12px;margin-bottom:16px;}
+    .stat{flex:1;border:1px solid #ddd;border-radius:6px;padding:10px;text-align:center;}
+    .stat .num{font-size:24px;font-weight:900;}.stat .lbl{font-size:10px;color:#666;text-transform:uppercase;margin-top:2px;}
+    table{width:100%;border-collapse:collapse;font-size:10px;}
+    th{background:#1A1614;color:#fff;padding:7px 8px;text-align:left;font-size:10px;}
+    td{padding:6px 8px;border-bottom:1px solid #eee;vertical-align:top;}
+    tr:nth-child(even) td{background:#F9F9F9;}
+    .footer{margin-top:16px;text-align:center;font-size:9px;color:#999;border-top:1px solid #ddd;padding-top:8px;}
+    .print-btn{background:#E8390E;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;}
+    @media print{.no-print{display:none!important;}body{padding:8px;}}
+  </style>
+  </head><body>
+  <div class="header">
+    <div>
+      <h1><span>AS</span> Industrial — Reporte de Inspecciones</h1>
+      <p>${cli} · ${mes||'Todos los meses'} · Generado: ${new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="num">${total}</div><div class="lbl">Total inspecciones</div></div>
+    <div class="stat"><div class="num" style="color:#2D9E6B;">${ok}</div><div class="lbl">✓ Exitosas</div></div>
+    <div class="stat"><div class="num" style="color:#C48A10;">${obs}</div><div class="lbl">⚠ Observación</div></div>
+    <div class="stat"><div class="num" style="color:#C42B2B;">${crit}</div><div class="lbl">✗ Críticas</div></div>
+  </div>
+  <table>
+    <thead><tr>
+      <th>Fecha</th><th>No. Serie</th><th>Área</th><th>Tipo</th>
+      <th>Cliente</th><th>Planta</th><th>Técnico</th><th>Estado</th><th>Observaciones</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="footer">AS Industrial · asindustrial-portal.vercel.app · ${new Date().toLocaleDateString('es-MX')}</div>
+  </body></html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+  showToast('✅ PDF listo — usa Ctrl+P para guardar como PDF');
+}
+
+async function loadDashboard() {
+  let equipos = null;
+  if (navigator.onLine) {
+    const { data } = await db.from('equipos').select('id,tipo').eq('activo',true);
+    equipos = data;
+  } else {
+    const cached = localStorage.getItem('cachedEquipos');
+    equipos = cached ? JSON.parse(cached) : [];
+  }
+  // Convertir a formato id,tipo si viene del caché completo
+  if (equipos?.length && equipos[0].no_serie) {
+    equipos = equipos.map(e => ({ id: e.id, tipo: e.tipo }));
+  }
+  const tot = equipos?.length||0;
+  document.getElementById('sTot').textContent = tot;
+  const tipos = ['extintor','hidrante','traje_bomberos','camilla','regadera'];
+  // Actualizar contadores por tipo solo si los elementos existen
+  const ids = {'extintor':'sCntExt','hidrante':'sCntHid','traje_bomberos':'sCntTrj','camilla':'sCntCam','regadera':'sCntReg'};
+  tipos.forEach(t => {
+    const cnt = equipos?.filter(e=>e.tipo===t).length||0;
+    const el = document.getElementById(ids[t]);
+    if (el) el.textContent = cnt;
+  });
+
+  // Inspecciones del mes actual
+  const now = new Date();
+  const y = now.getFullYear(), m = String(now.getMonth()+1).padStart(2,'0');
+  const inicio = `${y}-${m}-01`;
+  const fin    = `${y}-${m}-${new Date(y, now.getMonth()+1, 0).getDate()}`;
+  const meses  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  document.getElementById('dashMesLabel').textContent = `— ${meses[now.getMonth()]} ${y}`;
+
+  const tablaMap = {extintor:'insp_extintores',hidrante:'insp_hidrantes',traje_bomberos:'insp_traje_bomberos',camilla:'insp_camillas',regadera:'insp_regaderas'};
+
+  // Leer inspecciones del mes desde tabla maestra
+  let inspMes = null;
+  if (navigator.onLine) {
+    const { data } = await db.from('inspecciones')
+      .select('estado, tipo_equipo, equipo_id')
+      .gte('fecha_inspeccion', inicio)
+      .lte('fecha_inspeccion', fin);
+    inspMes = data;
+    if (data) localStorage.setItem('cachedInspMes', JSON.stringify({ data, mes: inicio }));
+  } else {
+    const cached = localStorage.getItem('cachedInspMes');
+    if (cached) {
+      const { data, mes } = JSON.parse(cached);
+      if (mes === inicio) inspMes = data;
+    }
+    // Agregar pendientes locales al conteo
+    const pending = JSON.parse(localStorage.getItem('pendingInspections') || '[]');
+    const pendingInsp = pending.map(p => ({ estado: p.payload.estado||'ok', tipo_equipo: p.tipo, equipo_id: p.equipo_id }));
+    inspMes = [...(inspMes||[]), ...pendingInsp];
+  }
+
+  const iTot  = inspMes?.length||0;
+  const iOk   = inspMes?.filter(i=>i.estado==='ok').length||0;
+  const iWarn = inspMes?.filter(i=>i.estado==='observacion').length||0;
+  const iCrit = inspMes?.filter(i=>i.estado==='critico').length||0;
+  document.getElementById('iTot').textContent  = iTot;
+  document.getElementById('iOk').textContent   = iOk;
+  document.getElementById('iWarn').textContent = iWarn;
+  document.getElementById('iCrit').textContent = iCrit;
+
+  // ── GRÁFICA 1: Barras horizontales por tipo (SVG) ──
+  const tipoLabels2 = ['🧯 Extintores','🚒 Hidrantes','🧥 Trajes','🛏 Camillas','🚿 Regaderas'];
+  const tipoOk2=[], tipoWarn2=[], tipoCrit2=[];
+  for (const t of tipos) {
+    const rows = inspMes?.filter(i=>i.tipo_equipo===t)||[];
+    tipoOk2.push(rows.filter(i=>i.estado==='ok').length);
+    tipoWarn2.push(rows.filter(i=>i.estado==='observacion').length);
+    tipoCrit2.push(rows.filter(i=>i.estado==='critico').length);
+  }
+  const maxTipo = Math.max(...tipoOk2.map((v,i)=>v+tipoWarn2[i]+tipoCrit2[i]), 1);
+  const grafTipo = document.getElementById('graficaTipo');
+  if (grafTipo) {
+    const barH = 28, gap = 10, labelW = 110, chartW = 280;
+    const totalH = (barH + gap) * 5;
+    let svgRows = tipoLabels2.map((label, i) => {
+      const tot = tipoOk2[i]+tipoWarn2[i]+tipoCrit2[i];
+      const wOk   = Math.round((tipoOk2[i]/maxTipo)*chartW);
+      const wWarn = Math.round((tipoWarn2[i]/maxTipo)*chartW);
+      const wCrit = Math.round((tipoCrit2[i]/maxTipo)*chartW);
+      const y = i*(barH+gap);
+      return `
+        <text x="${labelW-6}" y="${y+barH/2+5}" text-anchor="end" fill="#C4BBB8" font-size="12">${label}</text>
+        <rect x="${labelW}" y="${y}" width="${wOk}"   height="${barH}" fill="#2D9E6B" rx="3"/>
+        <rect x="${labelW+wOk}" y="${y}" width="${wWarn}" height="${barH}" fill="#C48A10" rx="3"/>
+        <rect x="${labelW+wOk+wWarn}" y="${y}" width="${wCrit}" height="${barH}" fill="#C42B2B" rx="3"/>
+        ${tot>0?`<text x="${labelW+wOk+wWarn+wCrit+5}" y="${y+barH/2+5}" fill="#8A7F7A" font-size="11">${tot}</text>`:''}
+      `;
+    }).join('');
+    grafTipo.innerHTML = `
+      <svg width="100%" viewBox="0 0 ${labelW+chartW+40} ${totalH+20}" xmlns="http://www.w3.org/2000/svg">
+        ${svgRows}
+      </svg>
+      <div style="display:flex;gap:14px;margin-top:8px;font-size:11px;color:var(--mist);">
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:#2D9E6B;border-radius:2px;display:inline-block"></span>Exitosas</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:#C48A10;border-radius:2px;display:inline-block"></span>Observación</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:#C42B2B;border-radius:2px;display:inline-block"></span>Críticas</span>
+      </div>`;
+  }
+
+  // ── GRÁFICA 2: Barras verticales por planta (SVG) ──
+  const { data: plantasData } = await db.from('plantas').select('id,nombre');
+  const plantaLabels=[], plantaCounts=[];
+  // Cargar IDs de equipos por planta para cruzar con inspMes
+  const { data: equiposPlanta } = await db.from('equipos').select('id, planta_id').eq('activo', true);
+  if (plantasData?.length) {
+    for (const p of plantasData) {
+      const eqIds = equiposPlanta?.filter(e=>e.planta_id===p.id).map(e=>e.id)||[];
+      const cnt = inspMes?.filter(i=> eqIds.includes(i.equipo_id)).length||0;
+      if (cnt > 0) { plantaLabels.push(p.nombre); plantaCounts.push(cnt); }
+    }
+  }
+  const grafPlanta = document.getElementById('graficaPlanta');
+  if (grafPlanta) {
+    if (!plantaLabels.length) {
+      grafPlanta.innerHTML = '<div style="color:var(--mist);font-size:13px;text-align:center;padding:40px 0;">Sin datos de plantas este mes</div>';
+    } else {
+      const maxP = Math.max(...plantaCounts, 1);
+      const barW = Math.max(28, Math.floor(260/plantaLabels.length)-6);
+      const chartH = 160, labelH = 50;
+      const totalW = plantaLabels.length*(barW+8);
+      let svgBars = plantaLabels.map((label, i) => {
+        const h = Math.round((plantaCounts[i]/maxP)*chartH);
+        const x = i*(barW+8);
+        const y = chartH-h;
+        const shortLabel = label.length>10 ? label.substring(0,10)+'…' : label;
+        return `
+          <rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="#E8390E" rx="3"/>
+          <text x="${x+barW/2}" y="${y-4}" text-anchor="middle" fill="#C4BBB8" font-size="11">${plantaCounts[i]}</text>
+          <text x="${x+barW/2}" y="${chartH+16}" text-anchor="middle" fill="#8A7F7A" font-size="10">${shortLabel || 'Sin nombre'}</text>
+        `;
+      }).join('');
+      grafPlanta.innerHTML = `
+        <svg width="100%" viewBox="0 0 ${Math.max(totalW,260)} ${chartH+labelH}" xmlns="http://www.w3.org/2000/svg">
+          ${svgBars}
+        </svg>`;
+    }
+  }
+
+
+
+
+  // Barra de progreso
+  if (iTot > 0) {
+    document.getElementById('barOk').style.width   = Math.round(iOk/iTot*100)+'%';
+    document.getElementById('barWarn').style.width = Math.round(iWarn/iTot*100)+'%';
+    document.getElementById('barCrit').style.width = Math.round(iCrit/iTot*100)+'%';
+  }
+  document.getElementById('sWarn').textContent = (iWarn||0) + (iCrit||0);
+
+  // Tabla equipos recientes — ya no se muestra
+  const tbody = document.getElementById('tbDash');
+  if (tbody) tbody.innerHTML = '';
+}
+
+// ── EQUIPOS ──
+async function loadEquipos() {
+  loader(true);
+  const filtro = document.getElementById('filtroTipo')?.value;
+  let equiposData = null;
+
+  if (navigator.onLine) {
+    // Con internet: cargar de Supabase y guardar en caché
+    let q = db.from('equipos').select('*,clientes(nombre),plantas(nombre)').eq('activo',true).order('tipo').order('no_serie');
+    if (filtro) q = q.eq('tipo', filtro);
+    const { data } = await q;
+    equiposData = data;
+    // Guardar todos los equipos en caché (sin filtro para tener todo disponible offline)
+    if (!filtro && data?.length) {
+      localStorage.setItem('cachedEquipos', JSON.stringify(data));
+      localStorage.setItem('cachedEquiposTime', new Date().toISOString());
+    }
+  } else {
+    // Sin internet: cargar del caché
+    const cached = localStorage.getItem('cachedEquipos');
+    if (cached) {
+      const allEquipos = JSON.parse(cached);
+      equiposData = filtro ? allEquipos.filter(e => e.tipo === filtro) : allEquipos;
+      showToast('📱 Mostrando equipos en caché (sin internet)');
+    }
+  }
+
+  loader(false);
+  const tbody = document.getElementById('tbEquipos');
+  if (!equiposData?.length) {
+    tbody.innerHTML = navigator.onLine
+      ? '<tr><td colspan="6" class="empty">No hay equipos registrados</td></tr>'
+      : '<tr><td colspan="6" class="empty">Sin conexión — abre el portal con internet primero para cargar los equipos</td></tr>';
+    return;
+  }
+  tbody.innerHTML = equiposData.map(e => {
+    const t = TIPOS[e.tipo]||{icon:'🔧',label:e.tipo};
+    return `<tr>
+      <td style="font-weight:500">${e.no_serie}</td>
+      <td>${e.area}</td>
+      <td>${t.icon} ${t.label}</td>
+      <td>${e.clientes?.nombre||'—'}</td>
+      <td><span class="badge b-ok">Activo</span></td>
+      <td><button class="btn-s fire" onclick='verFicha(${JSON.stringify(e)})'>Ver ficha</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── FICHA ──
+async function verFicha(equipo) {
+  currentEquipo = equipo;
+  const t = TIPOS[equipo.tipo]||{icon:'🔧',label:equipo.tipo,badge:'',tabla:'inspecciones'};
+  // Mostrar/ocultar botón eliminar según rol
+  const btnEliminar = document.getElementById('btnEliminarEquipoWrap');
+  if (btnEliminar) btnEliminar.style.display = ['admin','supervisor'].includes(currentPerfil?.rol) ? 'block' : 'none';
+  document.getElementById('fichaIco').textContent = t.icon;
+  document.getElementById('fichaSerie').textContent = equipo.no_serie + ' · ' + t.label;
+  document.getElementById('fichaNombre').textContent = (equipo.subtipo||t.label) + ' — ' + equipo.area;
+  document.getElementById('fichaArea').textContent = '📍 ' + equipo.area + (equipo.departamento?' · '+equipo.departamento:'');
+  document.getElementById('fichaUrl').textContent = 'asindustrial-portal.vercel.app/equipo/'+equipo.id;
+  document.getElementById('fichaTipoBadge').innerHTML = `<span class="tipo-badge ${t.badge}">${t.icon} ${t.label}</span>`;
+  document.getElementById('fichaInfoGrid').innerHTML = [
+    ['No. de serie', equipo.no_serie],
+    ['Marca', equipo.marca||'—'],
+    ['Subtipo', equipo.subtipo||'—'],
+    ['Última revisión', equipo.fecha_ultima_revision||'—'],
+    ['Próxima revisión', equipo.fecha_proxima_revision||'—'],
+    ['Cliente', equipo.clientes?.nombre||'—'],
+  ].map(([l,v])=>`<div class="ic"><div class="ic-l">${l}</div><div class="ic-v">${v}</div></div>`).join('');
+
+  // Cargar historial según tipo
+  const tabla = t.tabla;
+  const { data: inspList } = await db.from(tabla).select('*').eq('equipo_id',equipo.id).order('fecha_inspeccion',{ascending:false});
+
+  if (inspList?.length) {
+    const last = inspList[0];
+    const statusEl = document.getElementById('fichaStatus');
+    if(last.estado==='ok'){statusEl.textContent='✓ Vigente';statusEl.className='fstatus fs-ok';}
+    else if(last.estado==='observacion'){statusEl.textContent='⚠ Observación';statusEl.className='fstatus fs-warn';}
+    else{statusEl.textContent='✗ Crítico';statusEl.className='fstatus fs-ng';}
+    document.getElementById('fichaChklist').innerHTML = buildChecklist(equipo.tipo, last);
+    document.getElementById('fichaObs').textContent = last.observaciones||'Sin observaciones.';
+    document.getElementById('fichaHist').innerHTML = inspList.map(i=>{
+      const b = i.estado==='ok'?'b-ok':i.estado==='observacion'?'b-warn':'b-ng';
+      const tx = i.estado==='ok'?'✓ OK':i.estado==='observacion'?'⚠ Observación':'✗ Crítico';
+      const canDel = currentUser && (currentUser.role==='admin' || currentUser.id===i.tecnico_id);
+      const btnDel = canDel ? `<button onclick="deleteInspection('${i.id}','${currentEquipo.tipo}')" style="background:none;border:none;color:var(--ng);cursor:pointer;font-size:13px;padding:2px 6px;border-radius:4px;opacity:.7;" title="Eliminar inspección">🗑</button>` : '';
+      return `<div class="hist-i"><div class="hist-d">${i.fecha_inspeccion}</div><div class="hist-t">Téc. ${i.tecnico_nombre||'—'}</div><span class="badge ${b}">${tx}</span>${btnDel}</div>`;
+    }).join('');
+  } else {
+    document.getElementById('fichaStatus').textContent='Sin inspecciones';
+    document.getElementById('fichaStatus').className='fstatus fs-warn';
+    document.getElementById('fichaChklist').innerHTML='<div class="empty" style="grid-column:1/-1">Sin inspecciones aún</div>';
+    document.getElementById('fichaObs').textContent='Sin observaciones.';
+    document.getElementById('fichaHist').innerHTML='<div class="empty">Sin historial</div>';
+  }
+  goTab('ficha');
+}
+
+function buildChecklist(tipo, last) {
+  let checks = [];
+  if(tipo==='extintor') checks=[
+    ['Accesible',last.accesible],['Señalizado',last.senalizado],['Carga',last.carga],
+    ['Manguera/Boquilla',last.manguera_boquilla],['Seguro/Cola de rata',last.seguro_cola_rata],
+    ['Cilindro',last.cilindro],['Collarín',last.estado_collarin],['Llantas',last.estado_llantas],
+    ['Tarjeta inspección',last.tarjeta_inspeccion],['Altura NOM-002',last.altura_nom002],
+    ['Delimitado',last.delimitado],
+  ];
+  else if(tipo==='hidrante') checks=[
+    ['Accesible',last.accesible],['Señalizado',last.senalizado],['Gabinete',last.gabinete],
+    ['Manguera',last.manguera],['Chiflón',last.chiflon],['Coples',last.coples],
+    ['Espuma',last.espuma],['Instrucciones',last.instrucciones],['Válvula',last.valvula],
+    ['Delimitado',last.delimitado],
+  ];
+  else if(tipo==='traje_bomberos') checks=[
+    ['Accesible',last.accesible],['Señalizado',last.senalizado],['Gabinete',last.gabinete],
+    ['Casco',last.casco],['Pantalón',last.pantalon],['Chaquetón',last.chaqueton],
+    ['Monja',last.monja],['Botas',last.botas],['Guantes',last.guantes],
+    ['SCBA',last.scba],['SCBA cargado',last.cargado_scba],['Delimitado',last.delimitado],
+  ];
+  else if(tipo==='camilla') checks=[
+    ['Accesible',last.accesible],['Señalizada',last.senalizada],['Gabinete',last.gabinete],
+    ['Funda',last.funda],['Sujeción',last.sujecion],['Estado',last.estado_camilla],
+    ['Inmovilización',last.inmovilizacion],['Araña',last.arana],['Pulpo',last.pulpo],
+    ['Delimitado',last.delimitado],
+  ];
+  else if(tipo==='regadera') checks=[
+    ['Accesible',last.accesible],['Señalizada',last.senalizada],['Nivel agua',last.nivel_agua],
+    ['Velocidad chorro',last.velocidad_chorro],['Sin contaminantes',last.libre_contaminantes],
+    ['Altura adecuada',last.altura_adecuada],['Posición',last.posicion],
+    ['Difusor',last.difusor],['Rociadores',last.estado_rociadores],
+    ['Tapón rociadores',last.tapon_rociadores],['Agua en buen estado',last.agua_buen_estado],
+    ['Delimitado',last.delimitado],
+  ];
+  return checks.map(([l,v])=>{
+    const na = !v||v==='N/A'||v==='na';
+    const ng = !na&&(v==='NO'||v==='no'||v==='DAÑADO'||v==='dañado'||v==='DAÑADA'||v==='dañada'||v.startsWith('NO'));
+    const cls = na?'ci-na':ng?'ci-ng':'ci-ok';
+    const ico = na?'—':ng?'✗':'✓';
+    return `<div class="chk"><div class="chk-i ${cls}">${ico}</div>${l}: <strong style="margin-left:4px">${v||'—'}</strong></div>`;
+  }).join('');
+}
+
+// ── FORMULARIO DINÁMICO ──
+function renderForm() {
+  const e = currentEquipo;
+  const t = TIPOS[e.tipo]||{icon:'🔧',label:e.tipo};
+  document.getElementById('formTitle').textContent = `Inspección — ${t.icon} ${t.label}`;
+  document.getElementById('formSub').textContent = e.no_serie + ' · ' + e.area + ' · ' + new Date().toLocaleDateString('es-MX');
+  document.getElementById('formSuccess').style.display = 'none';
+
+  const today = new Date().toISOString().split('T')[0];
+  const comunes = `
+    <div class="fsec">
+      <div class="fsec-title">Datos generales</div>
+      <div class="fgrid">
+        <div class="ff"><label class="fl">Cliente</label><input class="fi" value="${e.clientes?.nombre||'—'}" readonly style="opacity:.6"/></div>
+        <div class="ff"><label class="fl">Planta</label><input class="fi" value="${e.plantas?.nombre||'—'}" readonly style="opacity:.6"/></div>
+        <div class="ff"><label class="fl">Área</label><input class="fi" id="fArea" value="${e.area||''}"/></div>
+        <div class="ff"><label class="fl">Sub área</label><input class="fi" id="fSubArea" placeholder="Ej. Pasillo Norte, Nivel 2..."/></div>
+        <div class="ff"><label class="fl">Tipo de equipo</label><input class="fi" value="${TIPOS[e.tipo]?.label||e.tipo}" readonly style="opacity:.6"/></div>
+        <div class="ff"><label class="fl">No. de serie</label><input class="fi" id="fSerie" value="${e.no_serie||''}" readonly style="opacity:.6"/></div>
+        <div class="ff"><label class="fl">Marca</label><input class="fi" id="fMarca" value="${e.marca||''}"/></div>
+        <div class="ff"><label class="fl">Fecha de fabricación</label><input class="fi" id="fFabricacion" value="${e.fecha_fabricacion||''}" placeholder="AAAA-MM"/></div>
+        <div class="ff"><label class="fl">Fecha de inspección</label>
+          <input class="fi" type="date" id="fFecha" value="${today}" readonly style="opacity:.7;cursor:not-allowed;" title="La fecha se registra automáticamente"/>
+          <small style="color:var(--mist);font-size:10px;">📅 Se registra la fecha actual automáticamente</small>
+        </div>
+      </div>
+    </div>`;
+
+  const fotos = `
+    <div class="fsec">
+      <div class="fsec-title">Fotografías</div>
+      <div class="fgrid">
+        <div class="upload-area" onclick="document.getElementById('fFiles').click()">
+          <div style="font-size:26px;margin-bottom:8px">📷</div>
+          <div style="font-size:13px;color:var(--mist)">Toca para agregar fotos</div>
+          <div class="prev-grid" id="prevGrid"></div>
+        </div>
+        <input type="file" id="fFiles" multiple accept="image/*" style="display:none" onchange="previewFiles(this)">
+      </div>
+    </div>`;
+
+  const tecnico = `
+    <div class="fsec">
+      <div class="fsec-title">Técnico y resultado</div>
+      <div class="fgrid">
+        <div class="ff"><label class="fl">Nombre del técnico</label><input class="fi" id="fTecNombre" value="${currentPerfil?.nombre||''}"/></div>
+        <div class="ff"><label class="fl">No. empleado</label><input class="fi" id="fTecNum" placeholder="EMP-XXX"/></div>
+        <div class="ff full"><label class="fl">Estado general</label>
+          <div class="rg">
+            <label class="ro"><input type="radio" name="est" value="ok"> ✓ OK</label>
+            <label class="ro"><input type="radio" name="est" value="observacion"> ⚠ Observación</label>
+            <label class="ro"><input type="radio" name="est" value="critico"> ✗ Crítico</label>
+          </div>
+          <div id="estError" style="color:var(--ng);font-size:11px;display:none;margin-top:4px;">⚠ Selecciona el estado general</div>
+        </div>
+        <div class="ff full"><label class="fl">Observaciones</label><textarea class="ft" id="fObs" placeholder="Describe el estado, anomalías, acciones recomendadas..."></textarea></div>
+      </div>
+    </div>`;
+
+  let campos = '';
+
+  if (e.tipo === 'extintor') {
+    campos = `
+    <div class="fsec"><div class="fsec-title">Datos del extintor</div><div class="fgrid">
+      <div class="ff"><label class="fl">Tipo extintor</label>
+        <select class="fs" id="fTipoExt">
+          <option value="">— Selecciona —</option>
+          <option>PQS ABC</option><option>CO2</option><option>Agua</option><option>Espuma</option><option>Halón</option><option>K</option>
+        </select>
+      </div>
+      <div class="ff"><label class="fl">Capacidad</label><input class="fi" id="fCapacidad" placeholder="9 kg, 4.5 kg..."/></div>
+      <div class="ff"><label class="fl">Fecha de fabricación</label><input class="fi" type="date" id="fFabricacion"/></div>
+      <div class="ff"><label class="fl">Fecha de carga</label><input class="fi" id="fFechaCarga" placeholder="ENE 2025"/></div>
+      <div class="ff"><label class="fl">Fecha de vencimiento</label><input class="fi" id="fFechaVenc" placeholder="ENE 2026"/></div>
+      <div class="ff"><label class="fl">Prueba hidrostática</label><input class="fi" id="fPruebaHidro" placeholder="MAR 2021"/></div>
+      <div class="ff"><label class="fl">Peso CO2 (solo CO2)</label><input class="fi" id="fPesoCO2" placeholder="12.5 KG"/></div>
+    </div></div>
+    <div class="fsec"><div class="fsec-title">Condiciones</div><div class="fgrid">
+      ${radio('Accesible','acc',['SI','NO'])}
+      ${radio('Señalizado','sen',['SI','NO','DAÑADO'])}
+      ${radio('Gabinete','gab',['OK','N/A'])}
+      ${radio('Carga','carga',['OK','BAJA'])}
+      ${radio('Manguera / Boquilla','man',['OK','DAÑADA','N/A'])}
+      ${radio('Seguro y cola de rata','seg',['SI','NO'])}
+      ${radio('Cilindro','cil',['OK','DAÑADO'])}
+      ${radio('Estado collarín','col',['OK','DAÑADO'])}
+      ${radio('Estado llantas','lla',['OK','DAÑADO','N/A'])}
+      ${radio('Tarjeta de inspección','tarj',['OK','NO'])}
+      ${radio('Altura NOM-002','nom',['SI','NO'])}
+      ${radio('Área delimitada','del',['SI','NO','N/A'])}
+    </div></div>`;
+  } else if (e.tipo === 'hidrante') {
+    campos = `
+    <div class="fsec"><div class="fsec-title">Datos del hidrante</div><div class="fgrid">
+      <div class="ff"><label class="fl">Tipo hidrante</label><input class="fi" id="fTipoHid" placeholder="Hidrante 1 1/2 x 30 mts"/></div>
+      <div class="ff"><label class="fl">Prueba hidrostática</label><input class="fi" id="fPruebaHidro" placeholder="2023-03"/></div>
+    </div></div>
+    <div class="fsec"><div class="fsec-title">Condiciones</div><div class="fgrid">
+      ${radio('Accesible','acc',['SI','NO'])}
+      ${radio('Señalizado','sen',['SI','NO','DAÑADO'])}
+      ${radio('Gabinete','gab',['OK','DAÑADO','N/A'])}
+      ${radio('Manguera','man',['OK','DAÑADA'])}
+      ${radio('Chiflón','chi',['OK','DAÑADO','NO ESTÁ'])}
+      ${radio('Coples','cop',['SI','NO'])}
+      ${radio('Espuma','esp',['OK','DAÑADO','N/A'])}
+      ${radio('Instrucciones','ins',['SI','NO'])}
+      ${radio('Válvula','val',['SI','DAÑADA'])}
+      ${radio('Área delimitada','del',['SI','NO','N/A'])}
+    </div></div>`;
+  } else if (e.tipo === 'traje_bomberos') {
+    campos = `
+    <div class="fsec"><div class="fsec-title">Datos del equipo</div><div class="fgrid">
+      <div class="ff"><label class="fl">Tipo de equipo</label>
+        <select class="fs" id="fTipoBom"><option>Equipo en planta</option><option>Equipo portátil</option></select>
+      </div>
+    </div></div>
+    <div class="fsec"><div class="fsec-title">Condiciones</div><div class="fgrid">
+      ${radio('Accesible','acc',['SI','NO'])}
+      ${radio('Señalizado','sen',['SI','NO'])}
+      ${radio('Gabinete','gab',['OK','DAÑADO','N/A'])}
+      ${radio('Casco','cas',['SI','NO'])}
+      ${radio('Pantalón','pan',['SI','NO'])}
+      ${radio('Chaquetón','chq',['SI','NO'])}
+      ${radio('Monja','mon',['SI','NO'])}
+      ${radio('Botas','bot',['SI','NO'])}
+      ${radio('Guantes','gua',['SI','NO'])}
+      ${radio('SCBA','scb',['SI','NO'])}
+      ${radio('Estado general','eqest',['BUENO','REGULAR','MALO'])}
+      ${radio('SCBA cargado','scbc',['SI','NO'])}
+      ${radio('Área delimitada','del',['SI','NO','N/A'])}
+    </div></div>`;
+  } else if (e.tipo === 'camilla') {
+    campos = `
+    <div class="fsec"><div class="fsec-title">Datos de la camilla</div><div class="fgrid">
+      <div class="ff"><label class="fl">Tipo de camilla</label>
+        <select class="fs" id="fTipoCam"><option>Camilla rígida</option><option>Camilla flexible</option><option>Camilla cuchara</option></select>
+      </div>
+    </div></div>
+    <div class="fsec"><div class="fsec-title">Condiciones</div><div class="fgrid">
+      ${radio('Accesible','acc',['SI','NO'])}
+      ${radio('Señalizada','sen',['SI','NO','DAÑADO'])}
+      ${radio('Gabinete','gab',['OK','DAÑADO','N/A'])}
+      ${radio('Funda','fun',['OK','NO ESTÁ','N/A'])}
+      ${radio('Sujeción','suj',['BUENO','DAÑADO'])}
+      ${radio('Estado camilla','estc',['OK','SUCIO','DAÑADO'])}
+      ${radio('Inmovilización','inm',['OK','NO'])}
+      ${radio('Araña','ara',['OK','NO ESTÁ','N/A'])}
+      ${radio('Pulpo','pul',['OK','NO ESTÁ','N/A'])}
+      ${radio('Área delimitada','del',['SI','NO','N/A'])}
+    </div></div>`;
+  } else if (e.tipo === 'regadera') {
+    campos = `
+    <div class="fsec"><div class="fsec-title">Datos de la regadera</div><div class="fgrid">
+      <div class="ff"><label class="fl">Tipo de regadera</label>
+        <select class="fs" id="fTipoReg">
+          <option>Regadera acero galvanizado</option>
+          <option>Regadera de recubrimiento plástico</option>
+          <option>Regadera c/lavaojos acero galvanizado</option>
+          <option>Lavaojos portátil</option>
+          <option>Lavaojos fijo</option>
+        </select>
+      </div>
+    </div></div>
+    <div class="fsec"><div class="fsec-title">Condiciones</div><div class="fgrid">
+      ${radio('Accesible','acc',['SI','NO'])}
+      ${radio('Señalizada','sen',['SI','NO','DAÑADO'])}
+      ${radio('Nivel de agua','niv',['SI','NO','BAJA PRESION'])}
+      ${radio('Velocidad de chorro','vel',['SI','NO','BAJA PRESION'])}
+      ${radio('Libre de contaminantes','con',['SI','NO'])}
+      ${radio('Altura adecuada (83-114cm)','alt',['OK','NO'])}
+      ${radio('Posición','pos',['OK','DAÑADA'])}
+      ${radio('Difusor','dif',['OK','DAÑADO','NO ESTÁ'])}
+      ${radio('Estado rociadores','roc',['OK','DAÑADO'])}
+      ${radio('Tapón rociadores','tap',['SI','NO'])}
+      ${radio('Agua en buen estado','agua',['SI','NO'])}
+      ${radio('Área delimitada','del',['SI','NO','N/A'])}
+    </div></div>`;
+  }
+
+  document.getElementById('formMain').innerHTML = comunes + campos + fotos + tecnico +
+    `<div class="form-btns">
+      <button class="btn-cancel" onclick="goTab('ficha')">Cancelar</button>
+      <button class="btn-save" onclick="saveInspection()">Guardar inspección ✓</button>
+    </div>`;
+}
+
+function radio(label, name, opts) {
+  return `<div class="ff"><label class="fl">${label} <span style="color:var(--ng);font-size:10px;">*</span></label><div class="rg">
+    ${opts.map((o)=>`<label class="ro"><input type="radio" name="${name}" value="${o}"> ${o}</label>`).join('')}
+  </div></div>`;
+}
+
+// ── GUARDAR INSPECCIÓN ──
+async function saveInspection() {
+  if (!currentEquipo) return;
+  const getR = n => document.querySelector(`input[name="${n}"]:checked`)?.value||null;
+  const getV = id => { const el=document.getElementById(id); return el?el.value:null; };
+
+  // ── VALIDAR TODOS LOS CAMPOS OBLIGATORIOS ──
+  const estado = getR('est');
+  if (!estado) {
+    document.getElementById('estError').style.display = 'block';
+    document.getElementById('estError').scrollIntoView({behavior:'smooth', block:'center'});
+    showToast('⚠ Selecciona el estado general', true);
+    return;
+  }
+  document.getElementById('estError').style.display = 'none';
+
+  // Validar todos los radios del formulario
+  const radiosGroups = [...new Set([...document.querySelectorAll('input[type="radio"]')].map(r=>r.name))].filter(n=>n!=='est');
+  const sinResponder = radiosGroups.filter(name => !document.querySelector(`input[name="${name}"]:checked`));
+  if (sinResponder.length > 0) {
+    // Resaltar el primer campo sin responder
+    const firstMissing = document.querySelector(`input[name="${sinResponder[0]}"]`);
+    if (firstMissing) {
+      firstMissing.closest('.ff').scrollIntoView({behavior:'smooth', block:'center'});
+      firstMissing.closest('.ff').style.border = '1px solid var(--ng)';
+      firstMissing.closest('.ff').style.borderRadius = '6px';
+      firstMissing.closest('.ff').style.padding = '6px';
+      setTimeout(()=>{ firstMissing.closest('.ff').style.border=''; firstMissing.closest('.ff').style.padding=''; }, 3000);
+    }
+    showToast(`⚠ Faltan ${sinResponder.length} campo(s) por responder`, true);
+    return;
+  }
+
+  const fecha = getV('fFecha');
+  let payload = {
+    equipo_id: currentEquipo.id,
+    tecnico_id: currentUser?.id||null,
+    tecnico_nombre: getV('fTecNombre'),
+    sub_area: getV('fSubArea')||null,
+    tecnico_numero: getV('fTecNum'),
+    fecha_inspeccion: fecha,
+    area: getV('fArea'),
+    no_serie: getV('fSerie'),
+    marca: getV('fMarca'),
+    estado: getR('est')||'ok',
+    observaciones: getV('fObs'),
+  };
+  const tipo = currentEquipo.tipo;
+  const tabla = TIPOS[tipo]?.tabla||'inspecciones';
+
+  if (tipo==='extintor') Object.assign(payload,{
+    tipo_extintor: getV('fTipoExt'), capacidad: getV('fCapacidad'),
+    fecha_carga: getV('fFechaCarga'), fecha_vencimiento: getV('fFechaVenc'),
+    prueba_hidrostatica: getV('fPruebaHidro'), peso_co2: getV('fPesoCO2'),
+    accesible:getR('acc'), senalizado:getR('sen'), gabinete:getR('gab'),
+    carga:getR('carga'), manguera_boquilla:getR('man'), seguro_cola_rata:getR('seg'),
+    cilindro:getR('cil'), estado_collarin:getR('col'), estado_llantas:getR('lla'),
+    tarjeta_inspeccion:getR('tarj'), altura_nom002:getR('nom'), delimitado:getR('del'),
+  });
+  else if (tipo==='hidrante') Object.assign(payload,{
+    tipo_hidrante:getV('fTipoHid'), prueba_hidrostatica:getV('fPruebaHidro'),
+    accesible:getR('acc'), senalizado:getR('sen'), gabinete:getR('gab'),
+    manguera:getR('man'), chiflon:getR('chi'), coples:getR('cop'),
+    espuma:getR('esp'), instrucciones:getR('ins'), valvula:getR('val'), delimitado:getR('del'),
+  });
+  else if (tipo==='traje_bomberos') Object.assign(payload,{
+    tipo_bombero:getV('fTipoBom'),
+    accesible:getR('acc'), senalizado:getR('sen'), gabinete:getR('gab'),
+    casco:getR('cas'), pantalon:getR('pan'), chaqueton:getR('chq'),
+    monja:getR('mon'), botas:getR('bot'), guantes:getR('gua'),
+    scba:getR('scb'), estado_equipo:getR('eqest'), cargado_scba:getR('scbc'), delimitado:getR('del'),
+  });
+  else if (tipo==='camilla') Object.assign(payload,{
+    tipo_camilla:getV('fTipoCam'),
+    accesible:getR('acc'), senalizada:getR('sen'), gabinete:getR('gab'),
+    funda:getR('fun'), sujecion:getR('suj'), estado_camilla:getR('estc'),
+    inmovilizacion:getR('inm'), arana:getR('ara'), pulpo:getR('pul'), delimitado:getR('del'),
+  });
+  else if (tipo==='regadera') Object.assign(payload,{
+    tipo_regadera:getV('fTipoReg'),
+    accesible:getR('acc'), senalizada:getR('sen'), nivel_agua:getR('niv'),
+    velocidad_chorro:getR('vel'), libre_contaminantes:getR('con'),
+    altura_adecuada:getR('alt'), posicion:getR('pos'), difusor:getR('dif'),
+    estado_rociadores:getR('roc'), tapon_rociadores:getR('tap'),
+    agua_buen_estado:getR('agua'), delimitado:getR('del'),
+  });
+
+  // ── MODO OFFLINE: si no hay internet, guardar localmente ──
+  if (!navigator.onLine) {
+    const offlineInsp = {
+      id: 'offline_' + Date.now(),
+      payload, tipo, tabla,
+      equipo_nombre: currentEquipo.nombre || currentEquipo.no_serie || 'Equipo',
+      equipo_id: currentEquipo.id,
+      fecha_guardado: new Date().toISOString(),
+      fotos: [] // fotos se guardan como base64
+    };
+    // Guardar fotos como base64
+    const files = document.getElementById('fFiles')?.files;
+    if (files && files.length > 0) {
+      const fotoPromises = Array.from(files).map(file => new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = e => resolve({ name: file.name, data: e.target.result });
+        reader.readAsDataURL(file);
+      }));
+      offlineInsp.fotos = await Promise.all(fotoPromises);
+    }
+    const pending = JSON.parse(localStorage.getItem('pendingInspections') || '[]');
+    pending.push(offlineInsp);
+    localStorage.setItem('pendingInspections', JSON.stringify(pending));
+    updateOfflineBadge();
+    loader(false);
+    showToast('📱 Sin internet — inspección guardada localmente');
+    goTab('equipos');
+    return;
+  }
+
+  loader(true);
+  const { data: inspData, error } = await db.from(tabla).insert(payload).select().single();
+  if (error) { loader(false); showToast('❌ Error: '+error.message, true); return; }
+
+  // Registrar en tabla maestra inspecciones (para dashboard y reportes)
+  const inspMaestra = {
+    id: inspData.id,
+    equipo_id: currentEquipo.id,
+    tecnico_id: currentUser?.id||null,
+    tecnico_nombre: payload.tecnico_nombre,
+    tecnico_numero: payload.tecnico_numero||null,
+    fecha_inspeccion: fecha,
+    area: payload.area||null,
+    no_serie: payload.no_serie||null,
+    marca: payload.marca||null,
+    estado: payload.estado||'ok',
+    observaciones: payload.observaciones||null,
+  };
+  const { error: errMaestra } = await db.from('inspecciones').insert(inspMaestra);
+  if (errMaestra) console.warn('Aviso tabla maestra:', errMaestra.message);
+
+  // Subir fotos y registrar en fotos_inspeccion
+  const files = document.getElementById('fFiles')?.files;
+  if (files && files.length > 0) {
+    const tipoColMap = {
+      extintor:       'inspeccion_ext_id',
+      hidrante:       'inspeccion_hid_id',
+      traje_bomberos: 'inspeccion_trj_id',
+      camilla:        'inspeccion_cam_id',
+      regadera:       'inspeccion_reg_id',
+    };
+    const tipoCol = tipoColMap[tipo] || 'inspeccion_id';
+    for (const file of files) {
+      const ext = file.name.split('.').pop();
+      const path = `${currentEquipo.id}/${inspData.id}/${Date.now()}_${Math.random().toString(36).substr(2,6)}.${ext}`;
+      const { error: upErr } = await db.storage.from('inspecciones').upload(path, file, { upsert: true });
+      if (!upErr) {
+        await db.from('fotos_inspeccion').insert({
+          inspeccion_id: inspData.id,
+          [tipoCol]: inspData.id,
+          storage_path: path,
+          descripcion: file.name,
+          tipo_inspeccion: tipo,
+        });
+      }
+    }
+  }
+
+  await db.from('equipos').update({ fecha_ultima_revision: fecha }).eq('id', currentEquipo.id);
+  loader(false);
+  document.getElementById('formMain').style.display = 'none';
+  document.getElementById('formSuccess').style.display = 'flex';
+  showToast('✅ Inspección guardada correctamente');
+}
+
+// ── ELIMINAR INSPECCIÓN ──
+async function deleteInspection(inspId, tipo) {
+  if (!confirm('¿Eliminar esta inspección? Esta acción no se puede deshacer.')) return;
+  const tablaMap = {
+    extintor:'insp_extintores', hidrante:'insp_hidrantes',
+    traje_bomberos:'insp_traje_bomberos', camilla:'insp_camillas', regadera:'insp_regaderas'
+  };
+  const tabla = tablaMap[tipo] || null;
+  loader(true);
+
+  // Borrar de tabla específica
+  if (tabla) {
+    const { error: e1 } = await db.from(tabla).delete().eq('id', inspId);
+    if (e1) { loader(false); showToast('❌ Error al eliminar: ' + e1.message, true); return; }
+  }
+
+  // Borrar de tabla maestra
+  const { error: e2 } = await db.from('inspecciones').delete().eq('id', inspId);
+  if (e2) { loader(false); showToast('❌ Error tabla maestra: ' + e2.message, true); return; }
+
+  loader(false);
+  showToast('✅ Inspección eliminada');
+
+  // Recargar todo lo que corresponda
+  loadDashboard();
+  if (currentEquipo) loadFicha(currentEquipo.id);
+  else if (document.getElementById('pReportes')?.style.display !== 'none') loadReporte();
+}
+
+// ── BÚSQUEDA RÁPIDA EN CAMPO ──
+async function campoBuscarEquipo() {
+  const q = document.getElementById('campoBuscar').value.trim();
+  const results = document.getElementById('campoBuscarResults');
+  if (q.length < 2) { results.style.display='none'; return; }
+
+  // Buscar en caché primero, luego en Supabase
+  let equipos = [];
+  const cached = localStorage.getItem('cachedEquipos');
+  if (cached) {
+    const all = JSON.parse(cached);
+    equipos = all.filter(e => e.no_serie.toUpperCase().includes(q.toUpperCase()));
+  }
+  if (!equipos.length && navigator.onLine) {
+    const { data } = await db.from('equipos')
+      .select('*,clientes(nombre)')
+      .ilike('no_serie', `%${q}%`)
+      .eq('activo', true)
+      .limit(8);
+    equipos = data || [];
+  }
+
+  if (!equipos.length) {
+    results.innerHTML = '<div style="padding:12px;color:var(--mist);font-size:13px;">Sin resultados</div>';
+    results.style.display = 'block';
+    return;
+  }
+
+  results.innerHTML = equipos.slice(0,8).map(e => {
+    const t = TIPOS[e.tipo]||{icon:'🔧',label:e.tipo};
+    return `<div onclick='campoSeleccionarEquipo(${JSON.stringify(e)})' 
+      style="padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05);display:flex;justify-content:space-between;align-items:center;"
+      onmouseover="this.style.background='rgba(255,255,255,.05)'" 
+      onmouseout="this.style.background=''">
+      <div>
+        <div style="font-weight:600;font-size:13px;">${e.no_serie}</div>
+        <div style="font-size:11px;color:var(--mist);">${t.icon} ${t.label} · ${e.area||'—'} · ${e.clientes?.nombre||'—'}</div>
+      </div>
+      <span style="color:var(--fire);font-size:12px;">Inspeccionar →</span>
+    </div>`;
+  }).join('');
+  results.style.display = 'block';
+}
+
+function campoSeleccionarEquipo(equipo) {
+  document.getElementById('campoBuscar').value = '';
+  document.getElementById('campoBuscarResults').style.display = 'none';
+  // Ir a la ficha del equipo con botón de inspeccionar
+  verFicha(equipo);
+}
+
+// Cerrar resultados al hacer clic fuera
+document.addEventListener('click', e => {
+  if (!e.target.closest('#campoBuscar') && !e.target.closest('#campoBuscarResults')) {
+    const r = document.getElementById('campoBuscarResults');
+    if (r) r.style.display = 'none';
+  }
+});
+
+// ── ELIMINAR EQUIPO ──
+async function eliminarEquipo(equipoId, noSerie) {
+  if (!['admin','supervisor'].includes(currentPerfil?.rol)) {
+    showToast('⚠ Sin permisos para eliminar equipos', true);
+    return;
+  }
+  if (!confirm(`¿Eliminar el equipo "${noSerie}"?
+
+Esto eliminará también todas sus inspecciones. Esta acción no se puede deshacer.`)) return;
+  loader(true);
+  // Eliminar inspecciones relacionadas primero
+  const tablas = ['insp_extintores','insp_hidrantes','insp_traje_bomberos','insp_camillas','insp_regaderas'];
+  for (const tabla of tablas) {
+    await db.from(tabla).delete().eq('equipo_id', equipoId);
+  }
+  await db.from('inspecciones').delete().eq('equipo_id', equipoId);
+  // Eliminar el equipo
+  const { error } = await db.from('equipos').delete().eq('id', equipoId);
+  loader(false);
+  if (error) { showToast('❌ Error: ' + error.message, true); return; }
+  showToast('✅ Equipo eliminado correctamente');
+  loadEquipos();
+  loadDashboard();
+}
+
+async function eliminarEquipoDesde(desde) {
+  if (!currentEquipo) return;
+  await eliminarEquipo(currentEquipo.id, currentEquipo.no_serie);
+  if (!document.getElementById('tbEquipos').innerHTML.includes(currentEquipo.id)) {
+    goTab('equipos');
+  }
+}
+
+// ── LÓGICA QR VIRGEN ──
+
+async function handleQRScan(qrCode) {
+  const esParExtintor = qrCode.endsWith('-A');
+  const codigoBase    = esParExtintor ? qrCode.slice(0, -2) : qrCode;
+
+  loader(true);
+  const { data: equipo } = await db.from('equipos')
+    .select('*,clientes(nombre),plantas(nombre)')
+    .eq('qr_code', codigoBase)
+    .maybeSingle();
+  loader(false);
+
+  if (!equipo) {
+    // Primera vez — equipo no registrado
+    if (esParExtintor) {
+      showToast('⚠ Escanea primero el QR de la PARED (sin -A)', true);
+      return;
+    }
+    // Pre-llenar número de serie con el código QR
+    sessionStorage.setItem('qrVirgen', qrCode);
+    const rol = currentPerfil?.rol;
+    if (rol === 'ayudante') {
+      goTab('ayudante');
+      setTimeout(() => {
+        const noSerie = document.getElementById('ayNoSerie');
+        if (noSerie) { noSerie.value = qrCode; noSerie.readOnly = true; noSerie.style.opacity = '.6'; }
+      }, 300);
+    } else {
+      // Admin/técnico — mostrar formulario de admin
+      goTab('admin');
+      setTimeout(() => {
+        const noSerie = document.getElementById('aSerie');
+        if (noSerie) { noSerie.value = qrCode; noSerie.readOnly = true; noSerie.style.opacity = '.6'; }
+        // Abrir el formulario de nuevo equipo
+        const addForm = document.getElementById('addEquipoForm');
+        if (addForm) addForm.style.display = 'block';
+      }, 400);
+    }
+    showToast('📋 Nuevo equipo — llena los datos');
+    return;
+  }
+
+  // Equipo ya registrado — requiere candado
+  if (esParExtintor) {
+    showToast('⚠ Escanea primero el QR de la PARED (sin -A)', true);
+    return;
+  }
+  currentEquipo = equipo;
+  mostrarCandado(equipo, qrCode);
+}
+
+function mostrarCandado(equipo, qrCode) {
+  const t = TIPOS[equipo.tipo]||{icon:'🔧', label:equipo.tipo};
+  document.getElementById('candadoInfo').innerHTML =
+    '<b>' + (equipo.no_serie||qrCode) + '</b> · ' + t.icon + ' ' + t.label +
+    ' · ' + (equipo.area||'—') + (equipo.clientes?.nombre ? ' · ' + equipo.clientes.nombre : '');
+  document.getElementById('candadoQRBase').value = qrCode;
+  document.getElementById('candadoError').style.display = 'none';
+  document.getElementById('candadoFotoWrap').style.display = 'none';
+  // Resetear el input de foto
+  const inp = document.getElementById('candadoCamaraInput');
+  if (inp) inp.value = '';
+  document.getElementById('modalCandado').style.display = 'flex';
+}
+
+async function leerQRDeFoto(input) {
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const dbgEl = document.getElementById('candadoDebug');
+  const fotoWrap = document.getElementById('candadoFotoWrap');
+  const preview = document.getElementById('candadoFotoPreview');
+
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    preview.src = ev.target.result;
+    fotoWrap.style.display = 'block';
+    if (dbgEl) dbgEl.textContent = '🔍 Procesando QR con ZXing...';
+
+    const img = new Image();
+    img.onload = async () => {
+      try {
+        const codeReader = new ZXing.BrowserQRCodeReader();
+        const result = await codeReader.decodeFromImageElement(img);
+        const raw = result.getText().trim();
+        if (dbgEl) dbgEl.textContent = '📷 Detectado: ' + raw;
+        let codigoEscaneado = raw.toUpperCase();
+        const urlMatch = raw.match(/[?&]qr=([^&]+)/i);
+        if (urlMatch) codigoEscaneado = urlMatch[1].toUpperCase();
+        procesarCodigoCandado(codigoEscaneado.trim());
+      } catch(err) {
+        if (dbgEl) dbgEl.textContent = '❌ No detectado (' + (err.message||'sin resultado') + ')';
+        document.getElementById('candadoError').textContent = '❌ No se pudo leer el QR. Intenta más cerca con buena iluminación.';
+        document.getElementById('candadoError').style.display = 'block';
+      }
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+
+
+
+
+function procesarCodigoCandado(codigoEscaneado) {
+  const qrBase   = document.getElementById('candadoQRBase').value;
+  const errorEl  = document.getElementById('candadoError');
+  const esperado = (qrBase + '-A').toUpperCase();
+  const recibido = codigoEscaneado.toUpperCase().trim();
+
+  console.log('Esperado:', esperado, '| Recibido:', recibido);
+
+  if (recibido !== esperado) {
+    errorEl.textContent = '❌ Código incorrecto (' + recibido + '). Se esperaba: ' + esperado;
+    errorEl.style.display = 'block';
+    // Reabrir cámara para intentar de nuevo
+      return;
+  }
+  // ¡Correcto! Vibrar si está disponible
+  if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+  document.getElementById('modalCandado').style.display = 'none';
+  showToast('✅ Verificación correcta — registra la inspección');
+  goTab('form');
+  renderForm();
+}
+
+function cerrarCandado() {
+  document.getElementById('modalCandado').style.display = 'none';
+}
+
+// ── AYUDANTE ──
+
+async function checkEquipoPendienteAyudante() {
+  // Si viene de un QR de equipo específico (segunda visita), ir directo a inspección
+  const urlParams = new URLSearchParams(window.location.search);
+  const equipoId = urlParams.get('equipo');
+  if (equipoId) {
+    const { data } = await db.from('equipos').select('*,clientes(nombre)').eq('id', equipoId).single();
+    if (data) {
+      currentEquipo = data;
+      showToast('📋 Equipo encontrado — registra la inspección');
+      goTab('form');
+      renderForm();
+      return;
+    }
+  }
+}
+
+function bloquearFormularioEquipo() {
+  // Bloquear todos los inputs del formulario de ayudante
+  ['ayTipo','ayNoSerie','ayArea','aySubArea','ayMarca','ayCapacidad','ayAgente','ayFabricacion','ayObservaciones']
+    .forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.disabled = true; el.style.opacity = '0.5'; }
+    });
+  // Cambiar botón
+  const btn = document.querySelector('[onclick="saveEquipoAyudante()"]');
+  if (btn) btn.style.display = 'none';
+}
+
+function ayudanteChangeTipo() {
+  const tipo = document.getElementById('ayTipo').value;
+  document.getElementById('ayCapacidadWrap').style.display = tipo === 'extintor' ? 'flex' : 'none';
+  document.getElementById('ayAgentWrap').style.display = tipo === 'extintor' ? 'flex' : 'none';
+}
+
+async function saveEquipoAyudante() {
+  const tipo   = document.getElementById('ayTipo').value;
+  const serie  = document.getElementById('ayNoSerie').value.trim().toUpperCase();
+  const area   = document.getElementById('ayArea').value.trim();
+  const marca  = document.getElementById('ayMarca').value.trim();
+  const cap    = document.getElementById('ayCapacidad')?.value.trim();
+  const agente = document.getElementById('ayAgente')?.value;
+  const fab    = document.getElementById('ayFabricacion').value;
+  const obs    = document.getElementById('ayObservaciones').value.trim();
+
+  if (!tipo)  { showToast('❌ Selecciona el tipo de equipo', true); return; }
+  if (!serie) { showToast('❌ El número de serie es obligatorio', true); return; }
+  if (!area)  { showToast('❌ El área es obligatoria', true); return; }
+
+  loader(true);
+
+  const cliente_id = document.getElementById('ayCliente')?.value||null;
+  const planta_id  = document.getElementById('ayPlanta')?.value||null;
+
+  const sub_area = document.getElementById('aySubArea')?.value.trim()||null;
+
+  // El código QR virgen = el número de serie capturado en campo
+  const qrVirgen = sessionStorage.getItem('qrVirgen') || serie;
+  sessionStorage.removeItem('qrVirgen');
+
+  const payload = {
+    tipo, no_serie: serie, area,
+    sub_area: sub_area||null,
+    marca: marca||null,
+    capacidad: cap||null,
+    agente_extintor: agente||null,
+    fecha_fabricacion: fab ? fab+'-01' : null,
+    observaciones: obs||null,
+    cliente_id: cliente_id||null,
+    planta_id: planta_id||null,
+    qr_code: qrVirgen,
+    activo: true,
+  };
+
+  const { data: equipo, error } = await db.from('equipos').insert(payload).select().single();
+  if (error) { loader(false); showToast('❌ Error: ' + error.message, true); return; }
+
+  // Subir foto si hay
+  const fotoInput = document.getElementById('aFoto');
+  if (fotoInput?.files?.length > 0) {
+    const file = fotoInput.files[0];
+    const path = `equipos/${equipo.id}/${file.name}`;
+    await db.storage.from('inspecciones').upload(path, file, { upsert: true });
+  }
+
+  loader(false);
+  showToast('✅ Equipo registrado — ahora completa la inspección');
+
+  // Ir directo al formulario de inspección del equipo recién registrado
+  currentEquipo = equipo;
+  goTab('form');
+  renderForm();
+}
+
+// ── MODO OFFLINE ──
+
+function updateOfflineBadge() {
+  const pending = JSON.parse(localStorage.getItem('pendingInspections') || '[]');
+  const badge = document.getElementById('offlineBadge');
+  const count = document.getElementById('offlineCount');
+  if (!badge) return;
+  if (pending.length > 0) {
+    badge.classList.add('show');
+    count.textContent = pending.length;
+  } else {
+    badge.classList.remove('show');
+  }
+}
+
+function showPendingInspections() {
+  const pending = JSON.parse(localStorage.getItem('pendingInspections') || '[]');
+  if (!pending.length) { showToast('✅ Todo sincronizado'); return; }
+  const lista = pending.map((p,i) => `${i+1}. ${p.equipo_nombre} — ${p.tipo} — ${new Date(p.fecha_guardado).toLocaleString('es-MX')}`).join('\n');
+  if (confirm(`Tienes ${pending.length} inspección(es) pendiente(s):\n\n${lista}\n\n¿Sincronizar ahora?`)) {
+    syncPendingInspections();
+  }
+}
+
+async function syncPendingInspections() {
+  if (!navigator.onLine) { showToast('❌ Sin conexión, intenta más tarde', true); return; }
+  const pending = JSON.parse(localStorage.getItem('pendingInspections') || '[]');
+  if (!pending.length) return;
+  loader(true);
+  let synced = 0, errors = 0;
+  const remaining = [];
+  for (const insp of pending) {
+    try {
+      // Subir inspección a tabla específica
+      const cleanPayload = {...insp.payload};
+      const { data: inspData, error } = await db.from(insp.tabla).insert(cleanPayload).select().single();
+      if (error) { errors++; remaining.push(insp); continue; }
+
+      // Registrar en tabla maestra
+      await db.from('inspecciones').insert({
+        id: inspData.id,
+        equipo_id: insp.equipo_id,
+        tecnico_id: insp.payload.tecnico_id||null,
+        tecnico_nombre: insp.payload.tecnico_nombre||null,
+        tecnico_numero: insp.payload.tecnico_numero||null,
+        fecha_inspeccion: insp.payload.fecha_inspeccion,
+        estado: insp.payload.estado||'ok',
+        observaciones: insp.payload.observaciones||null,
+        tipo_equipo: insp.tipo,
+        sub_area: insp.payload.sub_area||null,
+      });
+
+      // Subir fotos si hay
+      if (insp.fotos && insp.fotos.length > 0) {
+        for (const foto of insp.fotos) {
+          try {
+            const res = await fetch(foto.data);
+            const blob = await res.blob();
+            const path = `${inspData.id}/${foto.name}`;
+            await db.storage.from('inspecciones').upload(path, blob, { upsert: true });
+            await db.from('fotos_inspeccion').insert({ inspeccion_id: inspData.id, url: path, tipo_tabla: insp.tabla });
+          } catch(e) { console.warn('Error subiendo foto:', e); }
+        }
+      }
+      synced++;
+    } catch(e) { errors++; remaining.push(insp); }
+  }
+  localStorage.setItem('pendingInspections', JSON.stringify(remaining));
+  updateOfflineBadge();
+  loader(false);
+  if (synced > 0) {
+    loadDashboard();
+    showToast(`✅ ${synced} inspección(es) sincronizada(s)`);
+  }
+  if (errors > 0) showToast(`⚠️ ${errors} inspección(es) con error`, true);
+}
+
+// Detectar cuando regresa internet y sincronizar automáticamente
+window.addEventListener('online', () => {
+  showToast('📶 Conexión restaurada — sincronizando...');
+  setTimeout(syncPendingInspections, 1500);
+});
+
+window.addEventListener('offline', () => {
+  showToast('📵 Sin conexión — modo offline activo', true);
+});
+
+// Verificar pendientes al cargar
+window.addEventListener('load', () => {
+  updateOfflineBadge();
+  // Si hay internet y hay pendientes, sincronizar
+  if (navigator.onLine) {
+    const pending = JSON.parse(localStorage.getItem('pendingInspections') || '[]');
+    if (pending.length > 0) setTimeout(syncPendingInspections, 3000);
+  }
+});
+
+// ── ADMIN ──
+function generarLoteQR() {
+  const prefijo  = (document.getElementById('qrPrefijo').value.trim().toUpperCase() || 'AS');
+  const inicio   = parseInt(document.getElementById('qrInicio').value) || 1;
+  const cantidad = Math.min(parseInt(document.getElementById('qrCantidad').value) || 10, 200);
+  const copias   = parseInt(document.getElementById('qrCopias').value) || 2;
+  const baseUrl  = 'https://asindustrial-portal.vercel.app';
+
+  // Generar pares: base (pared) y base-A (extintor)
+  const codigos = [];
+  for (let i = 0; i < cantidad; i++) {
+    const num  = String(inicio + i).padStart(4, '0');
+    const base = prefijo + '-' + num;
+    codigos.push({ codigo: base,        label: 'PEGAR EN PARED',     color: '#1A1614' });
+    codigos.push({ codigo: base + '-A', label: 'COLGAR EN EXTINTOR', color: '#E8390E' });
+  }
+
+  const qrImg = (codigo) => {
+    const url = encodeURIComponent(baseUrl + '/?qr=' + codigo);
+    return 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + url + '&bgcolor=ffffff&color=1a1614&margin=6&ecc=H';
+  };
+
+  const etiquetas = codigos.map(item =>
+    '<div class="etiqueta" style="border-color:' + item.color + '">' +
+      '<div class="et-header" style="background:' + item.color + '">' +
+        '<div class="et-logo"><span>AS</span> Industrial</div>' +
+        '<div class="et-sub">' + item.label + '</div>' +
+      '</div>' +
+      '<div class="et-body">' +
+        '<img class="et-qr" src="' + qrImg(item.codigo) + '" alt="' + item.codigo + '" loading="lazy"/>' +
+        '<div class="et-codigo">' + item.codigo + '</div>' +
+        '<div class="et-instruc">Escanea para registrar<br>o inspeccionar el equipo</div>' +
+        '<div class="et-footer-txt">INSPECCIONAR MÍNIMO MENSUALMENTE</div>' +
+      '</div>' +
+    '</div>'
+  ).join('');
+
+  const html = '<!DOCTYPE html>' +
+  '<html lang="es"><head><meta charset="UTF-8">' +
+  '<title>Etiquetas QR — AS Industrial</title>' +
+  '<style>' +
+  '@import url("https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap");' +
+  '*{margin:0;padding:0;box-sizing:border-box;}' +
+  'body{font-family:"DM Sans",Arial,sans-serif;background:#f0f0f0;padding:10px;}' +
+  '.info-bar{background:#1A1614;color:#fff;padding:12px 20px;border-radius:8px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}' +
+  '.info-bar h2{font-family:"Syne",sans-serif;font-size:15px;}.info-bar h2 span{color:#E8390E;}' +
+  '.info-bar p{font-size:11px;color:#C4BBB8;}' +
+  '.print-btn{background:#E8390E;color:#fff;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;}' +
+  '.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-width:21cm;margin:0 auto;}' +
+  '.etiqueta{background:#fff;border:2px solid #1A1614;border-radius:10px;overflow:hidden;break-inside:avoid;}' +
+  '.et-header{background:#1A1614;padding:8px 10px;text-align:center;}' +
+  '.et-logo{font-family:"Syne",sans-serif;font-size:14px;font-weight:800;color:#fff;}' +
+  '.et-logo span{color:#E8390E;}' +
+  '.et-sub{font-size:7px;color:#C4BBB8;letter-spacing:.5px;text-transform:uppercase;margin-top:1px;}' +
+  '.et-body{padding:8px;text-align:center;}' +
+  '.et-qr{width:100%;max-width:120px;height:auto;border:1px solid #eee;border-radius:4px;}' +
+  '.et-codigo{font-family:"Syne",sans-serif;font-size:13px;font-weight:800;color:#1A1614;margin:5px 0 3px;letter-spacing:.5px;}' +
+  '.et-instruc{font-size:8px;color:#666;margin-bottom:5px;line-height:1.4;}' +
+  '.et-footer-txt{font-size:7px;font-weight:700;color:#E8390E;text-transform:uppercase;letter-spacing:.5px;border-top:1px solid #eee;padding-top:4px;margin-top:3px;}' +
+  '@media print{body{background:#fff;padding:0;}.info-bar{display:none!important;}.grid{gap:4px;max-width:100%;}@page{size:letter;margin:8mm;}}' +
+  '</style></head><body>' +
+  '<div class="info-bar">' +
+    '<div><h2><span>AS</span> Industrial — Lote de Etiquetas QR</h2>' +
+    '<p>' + codigos.length + ' etiquetas · ' + cantidad + ' equipos · 1 pared + 1 extintor c/u · Generado: ' + new Date().toLocaleDateString('es-MX') + '</p></div>' +
+    '<button class="print-btn" onclick="window.print()">🖨️ Imprimir etiquetas</button>' +
+  '</div>' +
+  '<div class="grid">' + etiquetas + '</div>' +
+  '</body></html>';
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+  showToast('✅ ' + codigos.length + ' etiquetas generadas — usa Ctrl+P para imprimir');
+}
+
+function generarQRAcceso() {
+  const url = 'https://asindustrial-portal.vercel.app/';
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}&bgcolor=ffffff&color=1a1614&margin=10`;
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>QR Acceso - AS Industrial</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Arial',sans-serif;background:#fff;display:flex;justify-content:center;align-items:center;min-height:100vh;padding:20px;}
+    .etiqueta{border:3px solid #1a1614;border-radius:12px;width:320px;overflow:hidden;text-align:center;}
+    .header{background:#1a1614;padding:16px;display:flex;align-items:center;justify-content:center;gap:10px;}
+    .logo-text{font-size:22px;font-weight:900;color:#fff;letter-spacing:1px;}
+    .logo-text span{color:#E8390E;}
+    .body{padding:20px;}
+    .qr-wrap{border:2px solid #eee;border-radius:8px;padding:10px;display:inline-block;margin:8px 0;}
+    .title{font-size:14px;font-weight:700;color:#1a1614;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;}
+    .subtitle{font-size:11px;color:#666;margin-bottom:14px;}
+    .url{font-size:9px;color:#999;word-break:break-all;margin-top:8px;border-top:1px solid #eee;padding-top:8px;}
+    .instruccion{background:#fff8f0;border:1px solid #E8390E;border-radius:6px;padding:10px;margin-top:12px;font-size:11px;color:#333;line-height:1.5;}
+    .btn{margin-top:20px;padding:12px 32px;background:#E8390E;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:700;}
+    @media print{.btn{display:none;} body{padding:0;} }
+  </style>
+  </head><body>
+    <div>
+      <div class="etiqueta">
+        <div class="header">
+          <div class="logo-text"><span>AS</span> Industrial</div>
+        </div>
+        <div class="body">
+          <div class="title">Portal de Inspecciones</div>
+          <div class="subtitle">Escanea para registrar equipos</div>
+          <div class="qr-wrap">
+            <img src="${qrUrl}" width="260" height="260" alt="QR Code"/>
+          </div>
+          <div class="instruccion">
+            📱 Escanea con la cámara de tu celular<br>
+            🔐 Inicia sesión con tu usuario<br>
+            📋 Registra el equipo en campo
+          </div>
+          <div class="url">${url}</div>
+        </div>
+      </div>
+      <br>
+      <center><button class="btn" onclick="window.print()">🖨️ Imprimir etiqueta</button></center>
+    </div>
+  </body></html>`);
+}
+
+function printQR(id, serie) {
+  const url = `https://asindustrial-portal.vercel.app/equipo/${id}`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(url)}`;
+  const win = window.open('','_blank');
+  win.document.write(`<html><head><title>QR - ${serie}</title><style>
+    body{font-family:sans-serif;text-align:center;padding:40px;}
+    h2{margin-bottom:4px;font-size:18px;} p{color:#666;font-size:13px;margin-bottom:18px;}
+    img{border:1px solid #ddd;padding:14px;border-radius:8px;}
+    .url{font-size:10px;color:#999;margin-top:10px;word-break:break-all;}
+    button{margin-top:18px;padding:10px 24px;background:#E8390E;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;}
+  </style></head><body>
+    <h2>AS Industrial</h2><p>Equipo: <strong>${serie}</strong></p>
+    <img src="${qrUrl}" width="260" height="260"/>
+    <div class="url">${url}</div>
+    <br><button onclick="window.print()">Imprimir QR</button>
+  </body></html>`);
+}
+
+// ── UTILIDADES ──
+function previewFiles(input) {
+  const g = document.getElementById('prevGrid');
+  Array.from(input.files).forEach(f => {
+    const r = new FileReader();
+    r.onload = e => { const i=document.createElement('img'); i.src=e.target.result; i.className='prev-img'; g.appendChild(i); };
+    r.readAsDataURL(f);
+  });
+}
+function loader(show) { document.getElementById('loader').classList[show?'add':'remove']('show'); }
+function showToast(msg, isErr) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.background = isErr?'#C42B2B':'#2D9E6B';
+  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3500);
+}
+document.getElementById('inPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+
+function toggleMenu() {
+  const m = document.getElementById('mobileMenu');
+  m.classList.toggle('open');
+}
+
+// Update mobile menu admin visibility
+function updateMobileAdmin() {
+  const p = currentPerfil;
+  if (!p) return;
+  const esAdmin = ['admin','supervisor'].includes(p.rol);
+  const mAdmin = document.getElementById('mAdmin');
+  if (mAdmin) mAdmin.style.display = esAdmin ? 'block' : 'none';
+}
+
+init();
+</script>
+</body>
+</html>
