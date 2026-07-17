@@ -1781,7 +1781,6 @@ function exportarPDF() {
       <h1><span>AS</span> Industrial — Reporte de Inspecciones</h1>
       <p>${cli} · ${mes||'Todos los meses'} · Generado: ${new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</p>
     </div>
-  
     <button class="print-btn no-print" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
   </div>
   <div class="stats">
@@ -3091,7 +3090,7 @@ function generarLoteQR() {
   '.et-content{display:flex;align-items:center;justify-content:center;gap:30px;}' +
   '.et-qr{width:280px;height:280px;border:2px solid #eee;border-radius:8px;flex-shrink:0;}' +
   '.et-right{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;flex:1;}' +
-  '.et-codigo{font-family:"Syne",sans-serif;font-size:32px;font-weight:800;color:#1A1614;letter-spacing:2px;line-height:1.2;word-break:break-all;}' +
+  '.et-codigo{font-family:"Syne",sans-serif;font-size:22px;font-weight:800;color:#1A1614;letter-spacing:1px;line-height:1.2;word-break:break-all;}' +
   '@media print{body{background:#fff;padding:0;}.info-bar{display:none!important;}.grid{gap:4px;max-width:100%;}@page{size:letter;margin:8mm;}}' +
   '</style></head><body>' +
   '<div class="info-bar">' +
