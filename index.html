@@ -636,12 +636,14 @@ tbody td{padding:11px 15px;font-size:13px;}
 
         <div class="ff">
           <label class="fl">Área / Ubicación *</label>
-          <input class="fi" id="ayArea" type="text" placeholder="Ej. Planta Baja, Pasillo Norte">
+          <select class="fs" id="ayArea" onchange="updateSubAreas('ayArea','aySubArea')">
+            <option value="">— Selecciona área —</option>
+          </select>
         </div>
 
         <div class="ff">
           <label class="fl">Sub área</label>
-          <input class="fi" id="aySubArea" type="text" placeholder="Ej. Pasillo Norte, Nivel 2...">
+          <select class="fs" id="aySubArea" disabled><option value="">— Selecciona área primero —</option></select>
         </div>
 
         <div class="ff">
@@ -828,8 +830,14 @@ tbody td{padding:11px 15px;font-size:13px;}
           <div class="ff"><label class="fl">Planta</label>
             <select class="fs" id="aPlanta"><option value="">— Sin planta —</option></select>
           </div>
-          <div class="ff"><label class="fl">Área / Departamento *</label><input class="fi" id="aArea" placeholder="Planta Baja"/></div>
-          <div class="ff"><label class="fl">Sub área</label><input class="fi" id="aSubArea" placeholder="Ej. Pasillo Norte, Nivel 2..."/></div>
+          <div class="ff"><label class="fl">Área / Departamento *</label>
+            <select class="fs" id="aArea" onchange="updateSubAreas('aArea','aSubArea')">
+              <option value="">— Selecciona área —</option>
+            </select>
+          </div>
+          <div class="ff"><label class="fl">Sub área</label>
+            <select class="fs" id="aSubArea" disabled><option value="">— Selecciona área primero —</option></select>
+          </div>
           <div class="ff"><label class="fl">Tipo de equipo *</label>
             <select class="fs" id="aTipo">
               <option value="">— Selecciona —</option>
@@ -1012,7 +1020,18 @@ async function loadPlantasAdmin() {
 
 function toggleAddForm() {
   const f = document.getElementById('addEquipoForm');
-  f.style.display = f.style.display==='none' ? 'block' : 'none';
+  const isOpening = f.style.display === 'none';
+  f.style.display = isOpening ? 'block' : 'none';
+  if (isOpening) {
+    const sel = document.getElementById('aArea');
+    if (sel && sel.options.length <= 1) {
+      Object.keys(AREAS_DATA).forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a; opt.textContent = a;
+        sel.appendChild(opt);
+      });
+    }
+  }
 }
 
 function toggleAddCliente() {
@@ -1700,6 +1719,15 @@ function showApp() {
     goTab('ayudante');
     // Cargar clientes en el select del ayudante
     loadClientesSelect('ayCliente');
+    // Poblar áreas del ayudante
+    const ayAreaSel = document.getElementById('ayArea');
+    if (ayAreaSel) {
+      Object.keys(AREAS_DATA).forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a; opt.textContent = a;
+        ayAreaSel.appendChild(opt);
+      });
+    }
     // Verificar si hay equipo pendiente de inspección (segunda visita)
     checkEquipoPendienteAyudante();
   } else {
@@ -1719,7 +1747,17 @@ function goTab(tab) {
   const el = document.getElementById('p'+T); if(el) el.style.display='flex';
   const tb = document.getElementById('t'+T); if(tb) tb.classList.add('active');
   if(tab==='equipos') loadEquipos();
-  if(tab==='admin')   { loadAdminTable(); loadClientesSelect(); loadPlantasAdmin(); loadClientesAdmin(); loadUsuariosAdmin(); }
+  if(tab==='admin')   { loadAdminTable(); loadClientesSelect(); loadPlantasAdmin(); loadClientesAdmin(); loadUsuariosAdmin();
+    // Poblar select de áreas en formulario admin
+    const aAreaSel = document.getElementById('aArea');
+    if (aAreaSel && aAreaSel.options.length <= 1) {
+      Object.keys(AREAS_DATA).forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a; opt.textContent = a;
+        aAreaSel.appendChild(opt);
+      });
+    }
+  }
   if(tab==='reportes') initReportes();
   if(tab==='form' && currentEquipo) renderForm();
   if(tab==='perfil') loadPerfil_UI();
@@ -2209,8 +2247,18 @@ function renderForm() {
       <div class="fgrid">
         <div class="ff"><label class="fl">Cliente</label><input class="fi" value="${e.clientes?.nombre||'—'}" readonly style="opacity:.6"/></div>
         <div class="ff"><label class="fl">Planta</label><input class="fi" value="${e.plantas?.nombre||'—'}" readonly style="opacity:.6"/></div>
-        <div class="ff"><label class="fl">Área</label><input class="fi" id="fArea" value="${e.area||''}"/></div>
-        <div class="ff"><label class="fl">Sub área</label><input class="fi" id="fSubArea" placeholder="Ej. Pasillo Norte, Nivel 2..."/></div>
+        <div class="ff"><label class="fl">Área</label>
+          <select class="fs" id="fArea" onchange="updateSubAreas('fArea','fSubArea')">
+            <option value="">— Selecciona área —</option>
+            ${Object.keys(AREAS_DATA).map(a=>`<option value="${a}" ${e.area===a?'selected':''}>${a}</option>`).join('')}
+          </select>
+        </div>
+        <div class="ff"><label class="fl">Sub área</label>
+          <select class="fs" id="fSubArea">
+            <option value="">— Selecciona área primero —</option>
+            ${(AREAS_DATA[e.area]||[]).map(s=>`<option value="${s}">${s}</option>`).join('')}
+          </select>
+        </div>
         <div class="ff"><label class="fl">Tipo de equipo</label><input class="fi" value="${TIPOS[e.tipo]?.label||e.tipo}" readonly style="opacity:.6"/></div>
         <div class="ff"><label class="fl">No. de serie</label><input class="fi" id="fSerie" value="${e.no_serie||''}" readonly style="opacity:.6"/></div>
         <div class="ff"><label class="fl">Marca</label><input class="fi" id="fMarca" value="${e.marca||''}"/></div>
@@ -2826,7 +2874,49 @@ function cerrarCandado() {
   document.getElementById('modalCandado').style.display = 'none';
 }
 
-// ── AYUDANTE ──
+// ── ÁREAS Y SUBÁREAS ──
+const AREAS_DATA = {
+  'ACERIA':                  ['CASTER','HORNOS'],
+  'REDI':                    ['ALCO 1','ALCO 2','3 M5','SILOS','BRIQUETEADORA','MANEJO DE MATERIALES','VOLCADO','4M'],
+  'AGUAS AM2':               ['CONTACTO DIRECTO 1','CONTACTO DIRECTO 2'],
+  'MC2':                     [],
+  'ALMACEN GENERAL':         [],
+  'MOLINOS':                 [],
+  'COMPRESORES':             [],
+  'CSI':                     [],
+  'POLVOS':                  [],
+  'TUBERIAS':                [],
+  'OFICINAS':                [],
+  'INFORMATICA (DATA CENTER)': [],
+};
+
+function buildAreaSelect(id, onchangeFn='') {
+  return `<select class="fs" id="${id}" onchange="${onchangeFn}">
+    <option value="">— Selecciona área —</option>
+    ${Object.keys(AREAS_DATA).map(a=>`<option value="${a}">${a}</option>`).join('')}
+  </select>`;
+}
+
+function buildSubAreaSelect(id) {
+  return `<select class="fs" id="${id}"><option value="">— Selecciona sub área —</option></select>`;
+}
+
+function updateSubAreas(areaId, subAreaId) {
+  const area = document.getElementById(areaId)?.value;
+  const sel  = document.getElementById(subAreaId);
+  if (!sel) return;
+  const subs = AREAS_DATA[area] || [];
+  if (subs.length === 0) {
+    sel.innerHTML = '<option value="">— Sin sub áreas —</option>';
+    sel.disabled = true;
+  } else {
+    sel.disabled = false;
+    sel.innerHTML = '<option value="">— Selecciona sub área —</option>' +
+      subs.map(s=>`<option value="${s}">${s}</option>`).join('');
+  }
+}
+
+
 
 async function checkEquipoPendienteAyudante() {
   // Si viene de un QR de equipo específico (segunda visita), ir directo a inspección
