@@ -486,6 +486,7 @@ tbody td{padding:11px 15px;font-size:13px;}
           <option value="camilla">🛏 Camillas</option>
           <option value="regadera">🚿 Regaderas/Lavaojos</option>
         </select>
+        <input class="fi" id="filtroSerie" placeholder="🔍 Buscar por No. Serie..." style="width:220px;padding:9px 14px;" oninput="filtrarEquiposTabla()"/>
       </div>
       <div class="tbl-wrap"><table>
         <thead><tr><th>No. Serie</th><th>Área</th><th>Tipo</th><th>Cliente</th><th>Estado</th><th></th></tr></thead>
@@ -670,7 +671,15 @@ tbody td{padding:11px 15px;font-size:13px;}
 
         <div class="ff" id="ayCapacidadWrap" style="display:none;">
           <label class="fl">Capacidad</label>
-          <input class="fi" id="ayCapacidad" type="text" placeholder="Ej. 6kg, 9L">
+          <select class="fs" id="ayCapacidad">
+            <option value="">— Selecciona —</option>
+            <option>1 kg</option><option>2 kg</option><option>2.5 kg</option>
+            <option>4 kg</option><option>4.5 kg</option><option>6 kg</option>
+            <option>9 kg</option><option>12 kg</option><option>20 kg</option>
+            <option>30 kg</option><option>50 kg</option>
+            <option>2.5 lt</option><option>5 lt</option><option>9 lt</option>
+            <option>2.3 kg (CO2)</option><option>4.5 kg (CO2)</option><option>6.8 kg (CO2)</option><option>10 kg (CO2)</option>
+          </select>
         </div>
 
         <div class="ff" id="ayAgentWrap" style="display:none;">
@@ -839,7 +848,7 @@ tbody td{padding:11px 15px;font-size:13px;}
             <select class="fs" id="aSubArea" disabled><option value="">— Selecciona área primero —</option></select>
           </div>
           <div class="ff"><label class="fl">Tipo de equipo *</label>
-            <select class="fs" id="aTipo">
+            <select class="fs" id="aTipo" onchange="adminChangeTipo()">
               <option value="">— Selecciona —</option>
               <option value="extintor">🧯 Extintor</option>
               <option value="hidrante">🚒 Hidrante</option>
@@ -850,7 +859,29 @@ tbody td{padding:11px 15px;font-size:13px;}
           </div>
           <div class="ff"><label class="fl">No. de serie *</label><input class="fi" id="aSerie" placeholder="EXT-001"/></div>
           <div class="ff"><label class="fl">Marca</label><input class="fi" id="aMarca" placeholder="Amerex, Kidde..."/></div>
-          <div class="ff"><label class="fl">Subtipo / Capacidad</label><input class="fi" id="aSubtipo" placeholder="PQS 9kg / Tipo II / Rígida..."/></div>
+          <div class="ff"><label class="fl">Subtipo</label><input class="fi" id="aSubtipo" placeholder="Tipo II / Rígida..."/></div>
+          <div class="ff" id="aCapacidadWrap" style="display:none;"><label class="fl">Capacidad</label>
+            <select class="fs" id="aCapacidad">
+              <option value="">— Selecciona —</option>
+              <option>1 kg</option><option>2 kg</option><option>2.5 kg</option>
+              <option>4 kg</option><option>4.5 kg</option><option>6 kg</option>
+              <option>9 kg</option><option>12 kg</option><option>20 kg</option>
+              <option>30 kg</option><option>50 kg</option>
+              <option>2.5 lt</option><option>5 lt</option><option>9 lt</option>
+              <option>2.3 kg (CO2)</option><option>4.5 kg (CO2)</option><option>6.8 kg (CO2)</option><option>10 kg (CO2)</option>
+            </select>
+          </div>
+          <div class="ff" id="aAgenteWrap" style="display:none;"><label class="fl">Agente extintor</label>
+            <select class="fs" id="aAgente">
+              <option value="">— Selecciona —</option>
+              <option value="PQS ABC">PQS ABC</option>
+              <option value="CO2">CO2</option>
+              <option value="Agua">Agua</option>
+              <option value="Espuma">Espuma</option>
+              <option value="Halón">Halón</option>
+              <option value="K">K</option>
+            </select>
+          </div>
           <div class="ff"><label class="fl">Fecha de fabricación</label><input class="fi" type="month" id="aFabricacion"/></div>
           <div class="ff"><label class="fl">Próxima revisión</label><input class="fi" type="date" id="aProxRev"/></div>
         </div>
@@ -1016,6 +1047,12 @@ async function loadPlantasAdmin() {
     <td>${p.ciudad||'—'}</td>
     <td>${p.contacto||'—'}</td>
   </tr>`).join('');
+}
+
+function adminChangeTipo() {
+  const tipo = document.getElementById('aTipo').value;
+  document.getElementById('aCapacidadWrap').style.display = tipo === 'extintor' ? 'flex' : 'none';
+  document.getElementById('aAgenteWrap').style.display    = tipo === 'extintor' ? 'flex' : 'none';
 }
 
 function toggleAddForm() {
@@ -1316,13 +1353,16 @@ async function loadAdminTable() {
 
 async function saveEquipo() {
   const serieAdmin = document.getElementById('aSerie').value.trim();
+  const tipo = document.getElementById('aTipo').value;
   const payload = {
     no_serie:   serieAdmin,
     area:       document.getElementById('aArea').value.trim(),
     sub_area:   document.getElementById('aSubArea')?.value.trim()||null,
-    tipo:       document.getElementById('aTipo').value,
+    tipo:       tipo,
     subtipo:    document.getElementById('aSubtipo').value.trim(),
     marca:      document.getElementById('aMarca').value.trim(),
+    capacidad:  tipo === 'extintor' ? (document.getElementById('aCapacidad')?.value||null) : null,
+    agente_extintor: tipo === 'extintor' ? (document.getElementById('aAgente')?.value||null) : null,
     cliente_id: document.getElementById('aCliente').value||null,
     planta_id:  document.getElementById('aPlanta').value||null,
     fecha_fabricacion: document.getElementById('aFabricacion')?.value ? document.getElementById('aFabricacion').value+'-01' : null,
@@ -1428,9 +1468,21 @@ async function buscarReporte() {
       <td>${r.tecnico_nombre||'—'}</td>
       <td style="color:${estColor};font-weight:500">${est}</td>
       <td style="max-width:200px;white-space:normal;font-size:12px">${r.observaciones||'—'}</td>
-      <td>${btnDel}</td>
+      <td style="display:flex;gap:4px;flex-wrap:wrap;">
+        ${btnDel}
+        <button onclick="verFichaDesdeReporte('${r.equipos?.no_serie||''}')" class="btn-s fire" style="font-size:11px;padding:4px 8px;">Ver ficha</button>
+      </td>
     </tr>`;
   }).join('');
+}
+
+async function verFichaDesdeReporte(noSerie) {
+  if (!noSerie) return;
+  loader(true);
+  const { data } = await db.from('equipos').select('*,clientes(nombre),plantas(nombre)').eq('no_serie', noSerie).single();
+  loader(false);
+  if (!data) { showToast('❌ No se encontró el equipo', true); return; }
+  verFicha(data);
 }
 
 function exportarExcel() {
@@ -2008,18 +2060,15 @@ async function loadEquipos() {
   let equiposData = null;
 
   if (navigator.onLine) {
-    // Con internet: cargar de Supabase y guardar en caché
     let q = db.from('equipos').select('*,clientes(nombre),plantas(nombre)').eq('activo',true).order('tipo').order('no_serie');
     if (filtro) q = q.eq('tipo', filtro);
     const { data } = await q;
     equiposData = data;
-    // Guardar todos los equipos en caché (sin filtro para tener todo disponible offline)
     if (!filtro && data?.length) {
       localStorage.setItem('cachedEquipos', JSON.stringify(data));
       localStorage.setItem('cachedEquiposTime', new Date().toISOString());
     }
   } else {
-    // Sin internet: cargar del caché
     const cached = localStorage.getItem('cachedEquipos');
     if (cached) {
       const allEquipos = JSON.parse(cached);
@@ -2029,6 +2078,11 @@ async function loadEquipos() {
   }
 
   loader(false);
+  window._allEquiposData = equiposData || [];
+  renderEquiposTabla(equiposData);
+}
+
+function renderEquiposTabla(equiposData) {
   const tbody = document.getElementById('tbEquipos');
   if (!equiposData?.length) {
     tbody.innerHTML = navigator.onLine
@@ -2052,6 +2106,17 @@ async function loadEquipos() {
   }).join('');
 }
 
+function filtrarEquiposTabla() {
+  const q = (document.getElementById('filtroSerie')?.value || '').toLowerCase().trim();
+  if (!q) { renderEquiposTabla(window._allEquiposData); return; }
+  const filtrados = (window._allEquiposData || []).filter(e =>
+    (e.no_serie||'').toLowerCase().includes(q) ||
+    (e.area||'').toLowerCase().includes(q) ||
+    (e.clientes?.nombre||'').toLowerCase().includes(q)
+  );
+  renderEquiposTabla(filtrados);
+}
+
 // ── FICHA ──
 async function verFicha(equipo) {
   currentEquipo = equipo;
@@ -2069,6 +2134,8 @@ async function verFicha(equipo) {
     ['No. de serie', equipo.no_serie],
     ['Marca', equipo.marca||'—'],
     ['Subtipo', equipo.subtipo||'—'],
+    ['Capacidad', equipo.capacidad||'—'],
+    ['Agente extintor', equipo.agente_extintor||'—'],
     ['Última revisión', equipo.fecha_ultima_revision||'—'],
     ['Próxima revisión', equipo.fecha_proxima_revision||'—'],
     ['Cliente', equipo.clientes?.nombre||'—'],
