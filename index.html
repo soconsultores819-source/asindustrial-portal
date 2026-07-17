@@ -3217,12 +3217,10 @@ function generarLoteQR() {
         '</div>' +
         '<div class="et-body">' +
           '<div class="et-content">' +
-            '<img class="et-qr" src="' + qrImg(item.codigo) + '" alt="' + item.codigo + '" loading="lazy"/>' +
+            '<img class="et-qr" src="' + qrImg(item.codigo) + '" alt="' + item.codigo + '"/>' +
             '<div class="et-right">' +
               '<div class="et-codigo">' + item.codigo + '</div>' +
-              (item.pin
-                ? '<div style="background:#E8390E;color:#fff;border-radius:10px;padding:16px 24px;margin:10px 0;font-family:Syne,sans-serif;font-size:42px;font-weight:900;letter-spacing:14px;">PIN: ' + item.pin + '</div>'
-                : '') +
+              (item.pin ? '<div class="et-pin">PIN: ' + item.pin + '</div>' : '') +
             '</div>' +
           '</div>' +
         '</div>' +
@@ -3241,17 +3239,19 @@ function generarLoteQR() {
   '.info-bar h2{font-family:"Syne",sans-serif;font-size:15px;}.info-bar h2 span{color:#E8390E;}' +
   '.info-bar p{font-size:11px;color:#C4BBB8;}' +
   '.print-btn{background:#E8390E;color:#fff;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;}' +
-  '.grid{display:grid;grid-template-columns:1fr;gap:0;margin:0 auto;}' +
-  '.etiqueta-wrap{width:21.6cm;height:27.9cm;display:flex;align-items:center;justify-content:center;page-break-after:always;break-after:page;}' +
-  '.etiqueta{background:#fff;border:2px solid #1A1614;border-radius:14px;overflow:hidden;width:25cm;transform:rotate(-90deg);transform-origin:center center;box-sizing:border-box;}' +
-  '.et-header{padding:18px 30px;text-align:center;}' +
-  '.et-sub{font-size:16px;color:#fff;letter-spacing:2px;text-transform:uppercase;font-weight:700;}' +
-  '.et-body{padding:30px 40px;text-align:center;}' +
-  '.et-content{display:flex;align-items:center;justify-content:center;gap:40px;}' +
-  '.et-qr{width:220px;height:220px;border:2px solid #eee;border-radius:8px;flex-shrink:0;}' +
-  '.et-right{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;flex:1;}' +
-  '.et-codigo{font-family:"Syne",sans-serif;font-size:32px;font-weight:800;color:#1A1614;letter-spacing:2px;line-height:1.2;word-break:break-all;}' +
-  '@media print{body{background:#fff;padding:0;}.info-bar{display:none!important;}.grid{gap:0;max-width:100%;}@page{size:letter portrait;margin:0;}}' +
+  '.grid{display:grid;grid-template-columns:1fr;gap:2mm;margin:0;padding:0;}' +
+  '.etiqueta-wrap{width:50mm;height:25mm;overflow:hidden;page-break-after:always;break-after:page;}' +
+  '.etiqueta{width:50mm;height:25mm;background:#fff;border:0.4mm solid #1A1614;border-radius:1.5mm;overflow:hidden;box-sizing:border-box;display:flex;flex-direction:column;}' +
+  '.et-header{background:#1A1614;padding:0.8mm 2mm;text-align:center;flex-shrink:0;}' +
+  '.et-header.naranja{background:#E8390E;}' +
+  '.et-sub{font-size:5px;color:#fff;letter-spacing:0.5px;text-transform:uppercase;font-weight:700;line-height:1.2;}' +
+  '.et-body{padding:1mm 2mm;flex:1;display:flex;align-items:center;}' +
+  '.et-content{display:flex;align-items:center;gap:2mm;width:100%;}' +
+  '.et-qr{width:18mm;height:18mm;flex-shrink:0;}' +
+  '.et-right{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;flex:1;min-width:0;}' +
+  '.et-codigo{font-family:"Syne",sans-serif;font-size:15px;font-weight:800;color:#1A1614;line-height:1.1;word-break:break-all;}' +
+  '.et-pin{background:#E8390E;color:#fff;border-radius:1mm;padding:0.5mm 1.5mm;margin-top:1mm;font-family:Syne,sans-serif;font-size:10px;font-weight:900;letter-spacing:2px;display:inline-block;}' +
+  '@media print{body{background:#fff;margin:0;padding:0;}.info-bar{display:none!important;}.grid{gap:0;}@page{size:50mm 25mm;margin:0;}}' +
   '</style></head><body>' +
   '<div class="info-bar">' +
     '<div><h2><span>AS</span> Industrial — Lote de Etiquetas QR</h2>' +
