@@ -3240,8 +3240,8 @@ function generarLoteQR() {
   '.info-bar p{font-size:11px;color:#C4BBB8;}' +
   '.print-btn{background:#E8390E;color:#fff;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;}' +
   '.grid{display:grid;grid-template-columns:1fr;gap:2mm;margin:0;padding:0;}' +
-  '.etiqueta-wrap{width:50mm;height:25mm;overflow:hidden;page-break-after:always;break-after:page;}' +
-  '.etiqueta{width:50mm;height:25mm;background:#fff;border:0.4mm solid #1A1614;border-radius:1.5mm;overflow:hidden;box-sizing:border-box;display:flex;flex-direction:column;}' +
+  '.etiqueta-wrap{width:50mm;height:25mm;overflow:hidden;page-break-after:always;break-after:page;display:flex;align-items:center;justify-content:center;}' +
+  '.etiqueta{width:25mm;height:50mm;background:#fff;border:0.4mm solid #1A1614;border-radius:1.5mm;overflow:hidden;box-sizing:border-box;display:flex;flex-direction:column;transform:rotate(90deg);transform-origin:center center;flex-shrink:0;}' +
   '.et-header{background:#1A1614;padding:0.8mm 2mm;text-align:center;flex-shrink:0;}' +
   '.et-header.naranja{background:#E8390E;}' +
   '.et-sub{font-size:5px;color:#fff;letter-spacing:0.5px;text-transform:uppercase;font-weight:700;line-height:1.2;}' +
@@ -3256,9 +3256,24 @@ function generarLoteQR() {
   '<div class="info-bar">' +
     '<div><h2><span>AS</span> Industrial — Lote de Etiquetas QR</h2>' +
     '<p>' + codigos.length + ' etiquetas · ' + cantidad + ' equipos · 1 pared + 1 extintor c/u · Generado: ' + new Date().toLocaleDateString('es-MX') + '</p></div>' +
-    '<button class="print-btn" onclick="window.print()">🖨️ Imprimir etiquetas</button>' +
+    '<button class="print-btn" onclick="mostrarAyudaImprimir()">🖨️ Imprimir etiquetas</button>' +
   '</div>' +
   '<div class="grid">' + etiquetas + '</div>' +
+  '<div id="mAyuda" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:999;align-items:center;justify-content:center;padding:16px;">' +
+  '<div style="background:#fff;border-radius:12px;padding:28px;max-width:460px;width:100%;">' +
+  '<div style="font-family:Syne,sans-serif;font-size:18px;font-weight:800;margin-bottom:16px;">🖨️ Cómo imprimir en Zebra</div>' +
+  '<ol style="font-size:14px;line-height:2;padding-left:20px;margin-bottom:20px;">' +
+  '<li>Selecciona tu <b>impresora Zebra</b> en el campo "Impresora"</li>' +
+  '<li>Abre <b>"Más opciones de configuración"</b></li>' +
+  '<li>Cambia el <b>tamaño de papel a 50 x 25 mm</b></li>' +
+  '<li>Pon los <b>márgenes en "Ninguno"</b></li>' +
+  '<li>Verifica que la <b>escala sea 100%</b></li>' +
+  '</ol>' +
+  '<div style="display:flex;gap:10px;">' +
+  '<button onclick="document.getElementById(\'mAyuda\').style.display=\'none\'" style="flex:1;padding:12px;border:2px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;">Cancelar</button>' +
+  '<button onclick="document.getElementById(\'mAyuda\').style.display=\'none\';window.print();" style="flex:2;padding:12px;border:none;border-radius:8px;background:#E8390E;color:#fff;cursor:pointer;font-weight:700;">✅ Entendido, imprimir</button>' +
+  '</div></div></div>' +
+  '<script>function mostrarAyudaImprimir(){document.getElementById("mAyuda").style.display="flex";}<\/script>' +
   '</body></html>';
 
   const win = window.open('', '_blank');
