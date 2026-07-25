@@ -3206,20 +3206,16 @@ function generarLoteQR() {
 
   const qrImg = (codigo) => {
     const url = encodeURIComponent(baseUrl + '/?qr=' + codigo);
-    return 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + url + '&bgcolor=ffffff&color=1a1614&margin=6&ecc=H';
+    return 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + url + '&bgcolor=ffffff&color=000000&margin=4&ecc=L';
   };
 
   const etiquetas = codigos.map(item =>
     '<div class="etiqueta-wrap">' +
       '<div class="etiqueta">' +
-        '<div class="et-top">' +
-          '<div class="et-badge">' + (item.pin ? 'E' : 'P') + '</div>' +
-        '</div>' +
-        '<div class="et-body">' +
-          '<img class="et-qr" src="' + qrImg(item.codigo) + '" alt="' + item.codigo + '"/>' +
-          '<div class="et-codigo">' + item.codigo + '</div>' +
-          (item.pin ? '<div class="et-pin">PIN: ' + item.pin + '</div>' : '') +
-        '</div>' +
+        '<div class="et-badge">' + (item.pin ? 'E' : 'P') + '</div>' +
+        '<img class="et-qr" src="' + qrImg(item.codigo) + '" alt="' + item.codigo + '"/>' +
+        '<div class="et-codigo">' + item.codigo + '</div>' +
+        (item.pin ? '<div class="et-pin">PIN: ' + item.pin + '</div>' : '') +
       '</div>' +
     '</div>'
   ).join('');
@@ -3236,14 +3232,12 @@ function generarLoteQR() {
   '.info-bar p{font-size:11px;color:#C4BBB8;}' +
   '.print-btn{background:#E8390E;color:#fff;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;}' +
   '.grid{display:grid;grid-template-columns:1fr;gap:2mm;margin:0;padding:0;}' +
-  '.etiqueta-wrap{width:50mm;height:25mm;overflow:hidden;page-break-after:always;break-after:page;display:flex;align-items:center;justify-content:center;}' +
-  '.etiqueta{width:23mm;height:48mm;background:#fff;border:0.4mm solid #333;border-radius:1.5mm;overflow:hidden;box-sizing:border-box;display:flex;flex-direction:column;transform:rotate(90deg);transform-origin:center center;flex-shrink:0;}' +
-  '.et-top{display:flex;align-items:flex-start;padding:1.5mm 1.5mm 0;flex-shrink:0;}' +
-  '.et-badge{background:#1A1614;color:#fff;font-family:"Syne",sans-serif;font-size:12px;font-weight:900;width:8mm;height:8mm;display:flex;align-items:center;justify-content:center;border-radius:0.8mm;flex-shrink:0;transform:rotate(-90deg);}' +
-  '.et-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 1.5mm 1.5mm;}' +
-  '.et-qr{width:19mm;height:19mm;flex-shrink:0;display:block;}' +
-  '.et-codigo{font-family:"Syne",sans-serif;font-size:7.5px;font-weight:900;color:#1A1614;line-height:1.2;word-break:break-all;text-align:center;margin-top:1mm;transform:rotate(-90deg);white-space:nowrap;}' +
-  '.et-pin{background:#E8390E;color:#fff;border-radius:0.8mm;padding:0.3mm 1mm;margin-top:0.8mm;font-family:Syne,sans-serif;font-size:6px;font-weight:900;letter-spacing:1px;display:inline-block;transform:rotate(-90deg);}' +
+  '.etiqueta-wrap{width:50mm;height:25mm;page-break-after:always;break-after:page;}' +
+  '.etiqueta{width:50mm;height:25mm;background:#fff;border:0.4mm solid #333;border-radius:1.5mm;overflow:hidden;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;padding:1mm;}' +
+  '.et-badge{background:#000;color:#fff;font-family:"Syne",sans-serif;font-size:9px;font-weight:900;width:6mm;height:6mm;display:flex;align-items:center;justify-content:center;border-radius:0.6mm;position:absolute;top:1mm;left:1mm;-webkit-print-color-adjust:exact;print-color-adjust:exact;}' +
+  '.et-qr{width:22mm;height:13mm;display:block;object-fit:fill;}' +
+  '.et-codigo{font-family:"BankGothic Md BT","Bank Gothic","BankGothic",Arial,sans-serif;font-size:8.5px;font-weight:700;color:#000;text-align:center;margin-top:1mm;line-height:1;}' +
+  '.et-pin{color:#000;font-family:"BankGothic Md BT","Bank Gothic","BankGothic",Arial,sans-serif;font-size:7px;font-weight:700;letter-spacing:2px;display:inline-block;margin-top:0.5mm;}' +
   '@media print{body{background:#fff;margin:0;padding:0;}.info-bar{display:none!important;}.grid{gap:0;}@page{size:50mm 25mm;margin:0;}}' +
   '</style></head><body>' +
   '<div class="info-bar">' +
