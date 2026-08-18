@@ -3209,16 +3209,30 @@ function generarLoteQR() {
     return 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + url + '&bgcolor=ffffff&color=000000&margin=4&ecc=L';
   };
 
-  const etiquetas = codigos.map(item =>
-    '<div class="etiqueta-wrap">' +
-      '<div class="etiqueta">' +
-        '<div class="et-badge">' + (item.pin ? 'E' : 'P') + '</div>' +
-        '<img class="et-qr" src="' + qrImg(item.codigo) + '" alt="' + item.codigo + '"/>' +
-        '<div class="et-codigo">' + item.codigo + '</div>' +
-        (item.pin ? '<div class="et-pin">PIN: ' + item.pin + '</div>' : '') +
-      '</div>' +
-    '</div>'
-  ).join('');
+  const etiquetas = codigos.map(item => {
+    const badge = '<div class="et-badge">' + (item.pin ? 'E' : 'P') + '</div>';
+    const qr = '<img class="et-qr" src="' + qrImg(item.codigo) + '" alt="' + item.codigo + '"/>';
+    let contenido;
+    if (item.pin) {
+      // Etiqueta E: QR izquierda, código y PIN derecha
+      contenido =
+        '<div class="et-layout-e">' +
+          qr +
+          '<div class="et-right-pin">' +
+            '<div class="et-codigo-e">' + item.codigo + '</div>' +
+            '<div class="et-pin">PIN: ' + item.pin + '</div>' +
+          '</div>' +
+        '</div>';
+    } else {
+      // Etiqueta P: QR arriba centrado, código abajo
+      contenido =
+        '<div class="et-layout-p">' +
+          qr +
+          '<div class="et-codigo">' + item.codigo + '</div>' +
+        '</div>';
+    }
+    return '<div class="etiqueta-wrap"><div class="etiqueta">' + badge + contenido + '</div></div>';
+  }).join('');
 
   const html = '<!DOCTYPE html>' +
   '<html lang="es"><head><meta charset="UTF-8">' +
@@ -3233,11 +3247,15 @@ function generarLoteQR() {
   '.print-btn{background:#E8390E;color:#fff;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;}' +
   '.grid{display:grid;grid-template-columns:1fr;gap:2mm;margin:0;padding:0;}' +
   '.etiqueta-wrap{width:50mm;height:25mm;page-break-after:always;break-after:page;}' +
-  '.etiqueta{width:50mm;height:25mm;background:#fff;border:0.4mm solid #333;border-radius:1.5mm;overflow:hidden;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;padding:1mm;}' +
-  '.et-badge{background:#000;color:#fff;font-family:"Syne",sans-serif;font-size:9px;font-weight:900;width:6mm;height:6mm;display:flex;align-items:center;justify-content:center;border-radius:0.6mm;position:absolute;top:1mm;left:1mm;-webkit-print-color-adjust:exact;print-color-adjust:exact;}' +
-  '.et-qr{width:22mm;height:13mm;display:block;object-fit:fill;}' +
-  '.et-codigo{font-family:"BankGothic Md BT","Bank Gothic","BankGothic",Arial,sans-serif;font-size:8.5px;font-weight:700;color:#000;text-align:center;margin-top:1mm;line-height:1;}' +
-  '.et-pin{color:#000;font-family:"BankGothic Md BT","Bank Gothic","BankGothic",Arial,sans-serif;font-size:7px;font-weight:700;letter-spacing:2px;display:inline-block;margin-top:0.5mm;}' +
+  '.etiqueta{width:50mm;height:25mm;background:#fff;border:0.4mm solid #333;border-radius:1.5mm;overflow:hidden;box-sizing:border-box;position:relative;}' +
+  '.et-badge{background:#000;color:#fff;font-family:"BankGothic Md BT","Bank Gothic","BankGothic",Arial,sans-serif;font-size:8px;font-weight:900;width:5.5mm;height:5.5mm;display:flex;align-items:center;justify-content:center;border-radius:0.5mm;position:absolute;top:1mm;left:1mm;-webkit-print-color-adjust:exact;print-color-adjust:exact;}' +
+  '.et-layout-p{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:1mm;}' +
+  '.et-layout-e{display:flex;flex-direction:row;align-items:center;height:100%;padding:1mm 1mm 1mm 1mm;}' +
+  '.et-qr{width:20mm;height:20mm;display:block;flex-shrink:0;}' +
+  '.et-right-pin{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding-left:2mm;}' +
+  '.et-codigo{font-family:"BankGothic Md BT","Bank Gothic","BankGothic",Arial,sans-serif;font-size:7px;font-weight:700;color:#000;text-align:center;margin-top:0.8mm;line-height:1.1;word-break:break-all;}' +
+  '.et-codigo-e{font-family:"BankGothic Md BT","Bank Gothic","BankGothic",Arial,sans-serif;font-size:6.5px;font-weight:700;color:#000;text-align:center;line-height:1.2;word-break:break-all;}' +
+  '.et-pin{color:#000;font-family:"BankGothic Md BT","Bank Gothic","BankGothic",Arial,sans-serif;font-size:9px;font-weight:900;letter-spacing:1px;text-align:center;margin-top:2mm;}' +
   '@media print{body{background:#fff;margin:0;padding:0;}.info-bar{display:none!important;}.grid{gap:0;}@page{size:50mm 25mm;margin:0;}}' +
   '</style></head><body>' +
   '<div class="info-bar">' +
