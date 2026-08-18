@@ -2345,12 +2345,19 @@ function renderForm() {
     <div class="fsec">
       <div class="fsec-title">Fotografías</div>
       <div class="fgrid">
-        <div class="upload-area" onclick="document.getElementById('fFiles').click()">
-          <div style="font-size:26px;margin-bottom:8px">📷</div>
-          <div style="font-size:13px;color:var(--mist)">Toca para agregar fotos</div>
-          <div class="prev-grid" id="prevGrid"></div>
+        <div style="display:flex;gap:10px;width:100%;">
+          <div class="upload-area" style="flex:1;cursor:pointer;" onclick="document.getElementById('fFilesCamera').click()">
+            <div style="font-size:26px;margin-bottom:4px">📷</div>
+            <div style="font-size:12px;color:var(--mist)">Tomar foto</div>
+          </div>
+          <div class="upload-area" style="flex:1;cursor:pointer;" onclick="document.getElementById('fFilesGaleria').click()">
+            <div style="font-size:26px;margin-bottom:4px">🖼️</div>
+            <div style="font-size:12px;color:var(--mist)">Elegir de galería</div>
+          </div>
         </div>
-        <input type="file" id="fFiles" multiple accept="image/*" style="display:none" onchange="previewFiles(this)">
+        <div class="prev-grid" id="prevGrid" style="width:100%;"></div>
+        <input type="file" id="fFilesCamera" accept="image/*" capture="environment" style="display:none" onchange="previewFiles(this)">
+        <input type="file" id="fFilesGaleria" multiple accept="image/*" style="display:none" onchange="previewFiles(this)">
       </div>
     </div>`;
 
@@ -2647,7 +2654,9 @@ async function saveInspection() {
       fotos: [] // fotos se guardan como base64
     };
     // Guardar fotos como base64
-    const files = document.getElementById('fFiles')?.files;
+    const filesCamera = document.getElementById('fFilesCamera')?.files||[];
+    const filesGaleria = document.getElementById('fFilesGaleria')?.files||[];
+    const files = [...filesCamera, ...filesGaleria];
     if (files && files.length > 0) {
       const fotoPromises = Array.from(files).map(file => new Promise(resolve => {
         const reader = new FileReader();
@@ -2688,7 +2697,9 @@ async function saveInspection() {
   if (errMaestra) console.warn('Aviso tabla maestra:', errMaestra.message);
 
   // Subir fotos y registrar en fotos_inspeccion
-  const files = document.getElementById('fFiles')?.files;
+  const filesCamera = document.getElementById('fFilesCamera')?.files||[];
+  const filesGaleria = document.getElementById('fFilesGaleria')?.files||[];
+  const files = [...filesCamera, ...filesGaleria];
   if (files && files.length > 0) {
     const tipoColMap = {
       extintor:       'inspeccion_ext_id',
