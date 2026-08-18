@@ -201,6 +201,8 @@ tbody td{padding:11px 15px;font-size:13px;}
 </style>
   <!-- QR Scanner library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+  <!-- QR Generator library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -297,7 +299,7 @@ tbody td{padding:11px 15px;font-size:13px;}
       <h2>Acceso al portal</h2>
       <div class="sub">Solo personal autorizado y clientes registrados</div>
       <div class="err" id="loginErr"></div>
-      <div class="field"><label>Correo electrónico</label><input type="email" id="inEmail" placeholder="correo@empresa.com"></div>
+      <div class="field"><label>Usuario</label><input type="email" id="inEmail" placeholder="usuario@as.mx"></div>
       <div class="field"><label>Contraseña</label><input type="password" id="inPass" placeholder="••••••••"></div>
       <button class="btn-fire" onclick="doLogin()">Ingresar</button>
       <div style="text-align:center;margin-top:16px;">
@@ -312,7 +314,7 @@ tbody td{padding:11px 15px;font-size:13px;}
       <h2>Recuperar contraseña</h2>
       <div class="sub">Te enviaremos un enlace para restablecer tu contraseña</div>
       <div class="err" id="resetErr"></div>
-      <div class="field"><label>Correo electrónico</label><input type="email" id="resetEmail" placeholder="correo@empresa.com"></div>
+      <div class="field"><label>Usuario</label><input type="email" id="resetEmail" placeholder="usuario@as.mx"></div>
       <button class="btn-fire" onclick="doReset()">Enviar enlace</button>
       <div style="text-align:center;margin-top:16px;">
         <button onclick="showLoginPanel()" style="background:none;border:none;color:var(--mist);font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:underline;">
@@ -686,11 +688,12 @@ tbody td{padding:11px 15px;font-size:13px;}
           <label class="fl">Agente extintor</label>
           <select class="fi" id="ayAgente">
             <option value="">— Selecciona —</option>
-            <option value="PQS">PQS (Polvo Químico Seco)</option>
+            <option value="PQS (Polvo Químico Seco)">PQS (Polvo Químico Seco)</option>
             <option value="CO2">CO2</option>
-            <option value="AFFF">AFFF (Espuma)</option>
-            <option value="Halon">Halon</option>
             <option value="Agua">Agua</option>
+            <option value="Espuma">Espuma</option>
+            <option value="Halón">Halón</option>
+            <option value="K">K</option>
           </select>
         </div>
 
@@ -874,11 +877,12 @@ tbody td{padding:11px 15px;font-size:13px;}
           <div class="ff" id="aAgenteWrap" style="display:none;"><label class="fl">Agente extintor</label>
             <select class="fs" id="aAgente">
               <option value="">— Selecciona —</option>
-              <option value="PQS ABC">PQS ABC</option>
+              <option value="PQS (Polvo Químico Seco)">PQS (Polvo Químico Seco)</option>
               <option value="CO2">CO2</option>
               <option value="Agua">Agua</option>
               <option value="Espuma">Espuma</option>
               <option value="Halón">Halón</option>
+              <option value="K">K</option>
               <option value="K">K</option>
             </select>
           </div>
@@ -2365,6 +2369,7 @@ function renderForm() {
           <div id="estError" style="color:var(--ng);font-size:11px;display:none;margin-top:4px;">⚠ Selecciona el estado general</div>
         </div>
         <div class="ff full"><label class="fl">Observaciones</label><textarea class="ft" id="fObs" placeholder="Describe el estado, anomalías, acciones recomendadas..."></textarea></div>
+        <div class="ff full"><label class="fl">Nombre del ayudante (opcional)</label><input class="fi" id="fNombreAyu" placeholder="Nombre de quien apoyó en la inspección"/></div>
       </div>
     </div>`;
 
@@ -2376,7 +2381,7 @@ function renderForm() {
       <div class="ff"><label class="fl">Tipo extintor</label>
         <select class="fs" id="fTipoExt">
           <option value="">— Selecciona —</option>
-          <option>PQS ABC</option><option>CO2</option><option>Agua</option><option>Espuma</option><option>Halón</option><option>K</option>
+          <option>PQS (Polvo Químico Seco)</option><option>CO2</option><option>Agua</option><option>Espuma</option><option>Halón</option><option>K</option>
         </select>
       </div>
       <div class="ff"><label class="fl">Capacidad</label>
@@ -2503,6 +2508,14 @@ function renderForm() {
       <button class="btn-cancel" onclick="goTab('ficha')">Cancelar</button>
       <button class="btn-save" onclick="saveInspection()">Guardar inspección ✓</button>
     </div>`;
+
+  // Pre-llenar nombre del ayudante con el usuario logueado
+  const campoAyu = document.getElementById('fNombreAyu');
+  if (campoAyu && currentUser) {
+    const perfil = currentUser.perfil || {};
+    const nombre = perfil.nombre_completo || perfil.nombre || currentUser.email?.split('@')[0] || '';
+    campoAyu.value = nombre;
+  }
 }
 
 function radio(label, name, opts) {
@@ -2557,6 +2570,7 @@ async function saveInspection() {
     marca: getV('fMarca'),
     estado: getR('est')||'ok',
     observaciones: getV('fObs'),
+    nombre_ayudante: getV('fNombreAyu')||null,
   };
   const tipo = currentEquipo.tipo;
   const tabla = TIPOS[tipo]?.tabla||'inspecciones';
@@ -3204,34 +3218,28 @@ function generarLoteQR() {
     codigos.push({ codigo: base + '-A', label: 'COLGAR EN EXTINTOR', color: '#E8390E', pin: pin  });
   }
 
-  const qrImg = (codigo) => {
-    const url = encodeURIComponent(baseUrl + '/?qr=' + codigo);
-    return 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + url + '&bgcolor=ffffff&color=000000&margin=4&ecc=L';
+  // Generar QR via API con URL corta para mejor legibilidad
+  const qrDataUrl = (codigo) => {
+    return Promise.resolve(
+      'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' +
+      encodeURIComponent(baseUrl + '/?qr=' + codigo) +
+      '&bgcolor=ffffff&color=000000&margin=6&ecc=M&format=png'
+    );
   };
 
-  const etiquetas = codigos.map(item => {
-    const badge = '<div class="et-badge">' + (item.pin ? 'E' : 'P') + '</div>';
-    const qr = '<img class="et-qr" src="' + qrImg(item.codigo) + '" alt="' + item.codigo + '"/>';
-    let contenido;
-    if (item.pin) {
-      // Etiqueta E: QR izquierda, código y PIN derecha
-      contenido =
-        '<div class="et-layout-e">' +
-          qr +
-          '<div class="et-right-pin">' +
-            '<div class="et-codigo-e">' + item.codigo + '</div>' +
-            '<div class="et-pin">PIN: ' + item.pin + '</div>' +
-          '</div>' +
-        '</div>';
-    } else {
-      // Etiqueta P: QR arriba centrado, código abajo
-      contenido =
-        '<div class="et-layout-p">' +
-          qr +
-          '<div class="et-codigo">' + item.codigo + '</div>' +
-        '</div>';
-    }
-    return '<div class="etiqueta-wrap"><div class="etiqueta">' + badge + contenido + '</div></div>';
+  // Generar todos los QRs primero, luego construir el HTML
+  Promise.all(codigos.map(item => qrDataUrl(item.codigo))).then(qrDataUrls => {
+  const etiquetas = codigos.map((item, idx) => {
+    const qr = '<img class="et-qr" src="' + qrDataUrls[idx] + '" alt="' + item.codigo + '"/>';
+    const left =
+      '<div class="et-left">' +
+        qr +
+        '<div class="et-codigo">' + item.codigo + '</div>' +
+      '</div>';
+    const pinCol = item.pin
+      ? '<div class="et-pin-col"><div class="et-pin">PIN: ' + item.pin + '</div></div>'
+      : '';
+    return '<div class="etiqueta-wrap"><div class="etiqueta">' + left + pinCol + '</div></div>';
   }).join('');
 
   const html = '<!DOCTYPE html>' +
@@ -3247,15 +3255,13 @@ function generarLoteQR() {
   '.print-btn{background:#E8390E;color:#fff;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;}' +
   '.grid{display:grid;grid-template-columns:1fr;gap:2mm;margin:0;padding:0;}' +
   '.etiqueta-wrap{width:50mm;height:25mm;page-break-after:always;break-after:page;}' +
-  '.etiqueta{width:50mm;height:25mm;background:#fff;border:0.4mm solid #333;border-radius:1.5mm;overflow:hidden;box-sizing:border-box;position:relative;}' +
-  '.et-badge{background:#000;color:#fff;font-family:"BankGothic Md BT","Bank Gothic","BankGothic",Arial,sans-serif;font-size:8px;font-weight:900;width:5.5mm;height:5.5mm;display:flex;align-items:center;justify-content:center;border-radius:0.5mm;position:absolute;top:1mm;left:1mm;-webkit-print-color-adjust:exact;print-color-adjust:exact;}' +
-  '.et-layout-p{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:1mm;}' +
-  '.et-layout-e{display:flex;flex-direction:row;align-items:center;height:100%;padding:1mm 1mm 1mm 1mm;}' +
-  '.et-qr{width:20mm;height:20mm;display:block;flex-shrink:0;}' +
-  '.et-right-pin{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding-left:2mm;}' +
-  '.et-codigo{font-family:"BankGothic Md BT","Bank Gothic","BankGothic",Arial,sans-serif;font-size:7px;font-weight:700;color:#000;text-align:center;margin-top:0.8mm;line-height:1.1;word-break:break-all;}' +
-  '.et-codigo-e{font-family:"BankGothic Md BT","Bank Gothic","BankGothic",Arial,sans-serif;font-size:6.5px;font-weight:700;color:#000;text-align:center;line-height:1.2;word-break:break-all;}' +
-  '.et-pin{color:#000;font-family:"BankGothic Md BT","Bank Gothic","BankGothic",Arial,sans-serif;font-size:9px;font-weight:900;letter-spacing:1px;text-align:center;margin-top:2mm;}' +
+  '.etiqueta-wrap{width:50mm;height:25mm;page-break-after:always;break-after:page;}' +
+  '.etiqueta{width:50mm;height:25mm;background:#fff;border:0.4mm solid #333;border-radius:1.5mm;overflow:hidden;box-sizing:border-box;display:flex;flex-direction:row;align-items:stretch;}' +
+  '.et-left{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0.5mm;flex:1;}' +
+  '.et-qr{width:25mm;height:21mm;display:block;flex-shrink:0;}' +
+  '.et-codigo{font-family:"BankGothic Md BT","Bank Gothic","BankGothic",Arial,sans-serif;font-size:5px;font-weight:700;color:#000;text-align:center;margin-top:0.5mm;line-height:1.2;word-break:break-all;}' +
+  '.et-pin-col{display:flex;align-items:center;justify-content:center;padding:1mm;border-left:0.3mm solid #ddd;flex-shrink:0;width:8mm;}' +
+  '.et-pin{color:#000;font-family:"BankGothic Md BT","Bank Gothic","BankGothic",Arial,sans-serif;font-size:6px;font-weight:900;writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:1px;text-align:center;}' +
   '@media print{body{background:#fff;margin:0;padding:0;}.info-bar{display:none!important;}.grid{gap:0;}@page{size:50mm 25mm;margin:0;}}' +
   '</style></head><body>' +
   '<div class="info-bar">' +
@@ -3285,6 +3291,7 @@ function generarLoteQR() {
   win.document.write(html);
   win.document.close();
   showToast('✅ ' + codigos.length + ' etiquetas generadas — usa Ctrl+P para imprimir');
+  }); // cierra Promise.all.then
 }
 
 function generarQRAcceso() {
