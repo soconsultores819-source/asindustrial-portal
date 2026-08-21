@@ -3242,15 +3242,13 @@ function generarLoteQR() {
   Promise.all(codigos.map(item => qrDataUrl(item.codigo))).then(qrDataUrls => {
   const etiquetas = codigos.map((item, idx) => {
     const qr = '<img class="et-qr" src="' + qrDataUrls[idx] + '" alt="' + item.codigo + '"/>';
-    const left =
-      '<div class="et-left">' +
-        qr +
+    const codigoLimpio = item.codigo.replace('-A','').replace(/-(\d+)$/, '-\n$1');
+    const right =
+      '<div class="et-right">' +
         '<div class="et-codigo">' + item.codigo + '</div>' +
+        (item.pin ? '<div class="et-pin">PIN<br>' + item.pin + '</div>' : '') +
       '</div>';
-    const pinCol = item.pin
-      ? '<div class="et-pin-col"><div class="et-pin">PIN: ' + item.pin + '</div></div>'
-      : '';
-    return '<div class="etiqueta-wrap"><div class="etiqueta">' + left + pinCol + '</div></div>';
+    return '<div class="etiqueta-wrap"><div class="etiqueta"><div class="et-left">' + qr + '</div>' + right + '</div></div>';
   }).join('');
 
   const html = '<!DOCTYPE html>' +
@@ -3268,11 +3266,11 @@ function generarLoteQR() {
   '.etiqueta-wrap{width:50mm;height:25mm;page-break-after:always;break-after:page;}' +
   '.etiqueta-wrap{width:50mm;height:25mm;page-break-after:always;break-after:page;}' +
   '.etiqueta{width:50mm;height:25mm;background:#fff;border:0.4mm solid #333;border-radius:1.5mm;overflow:hidden;box-sizing:border-box;display:flex;flex-direction:row;align-items:stretch;}' +
-  '.et-left{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0.5mm;flex:1;}' +
-  '.et-qr{width:25mm;height:21mm;display:block;flex-shrink:0;}' +
-  '.et-codigo{font-family:"BankGothic Md BT","Bank Gothic","BankGothic",Arial,sans-serif;font-size:5px;font-weight:700;color:#000;text-align:center;margin-top:0.5mm;line-height:1.2;word-break:break-all;}' +
-  '.et-pin-col{display:flex;align-items:center;justify-content:center;padding:1mm;border-left:0.3mm solid #ddd;flex-shrink:0;width:8mm;}' +
-  '.et-pin{color:#000;font-family:"BankGothic Md BT","Bank Gothic","BankGothic",Arial,sans-serif;font-size:6px;font-weight:900;writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:1px;text-align:center;}' +
+  '.et-left{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1mm;flex-shrink:0;}' +
+  '.et-qr{width:23mm;height:23mm;display:block;}' +
+  '.et-right{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:1.5mm;border-left:0.3mm solid #eee;}' +
+  '.et-codigo{font-family:"BankGothic Md BT","Bank Gothic","BankGothic",Arial,sans-serif;font-size:9px;font-weight:900;color:#000;text-align:center;line-height:1.3;word-break:break-all;}' +
+  '.et-pin{font-family:"BankGothic Md BT","Bank Gothic","BankGothic",Arial,sans-serif;font-size:10px;font-weight:900;color:#000;text-align:center;margin-top:2mm;line-height:1.3;}' +
   '@media print{body{background:#fff;margin:0;padding:0;}.info-bar{display:none!important;}.grid{gap:0;}@page{size:50mm 25mm;margin:0;}}' +
   '</style></head><body>' +
   '<div class="info-bar">' +
