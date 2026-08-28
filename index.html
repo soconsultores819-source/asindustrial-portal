@@ -3242,10 +3242,14 @@ function generarLoteQR() {
   Promise.all(codigos.map(item => qrDataUrl(item.codigo))).then(qrDataUrls => {
   const etiquetas = codigos.map((item, idx) => {
     const qr = '<img class="et-qr" src="' + qrDataUrls[idx] + '" alt="' + item.codigo + '"/>';
-    const codigoLimpio = item.codigo.replace('-A','').replace(/-(\d+)$/, '-\n$1');
+    const partes = item.codigo.match(/^([A-Z]+)-(\d+(?:-A)?)$/) ||
+                   item.codigo.match(/^(.+?)-(\d{4}(?:-A)?)$/);
+    const codigoDisplay = partes
+      ? partes[1] + '<br>' + partes[2].replace('-A', ' A')
+      : item.codigo;
     const right =
       '<div class="et-right">' +
-        '<div class="et-codigo">' + item.codigo + '</div>' +
+        '<div class="et-codigo">' + codigoDisplay + '</div>' +
         (item.pin ? '<div class="et-pin">PIN<br>' + item.pin + '</div>' : '') +
       '</div>';
     return '<div class="etiqueta-wrap"><div class="etiqueta"><div class="et-left">' + qr + '</div>' + right + '</div></div>';
