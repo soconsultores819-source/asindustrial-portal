@@ -217,6 +217,10 @@ tbody td{padding:11px 15px;font-size:13px;}
       <div style="display:flex;flex-direction:column;gap:12px;">
         <div class="ff"><label class="fl">Nombre completo *</label>
           <input class="fi" id="eUserNombre" placeholder="Nombre del usuario"></div>
+        <div class="ff"><label class="fl">Usuario (correo) *</label>
+          <input class="fi" id="eUserEmail" type="email" placeholder="usuario@as.mx">
+          <small style="color:var(--mist);font-size:10px;margin-top:4px;">Formato requerido: algo@dominio.com</small>
+        </div>
         <div class="ff"><label class="fl">No. empleado</label>
           <input class="fi" id="eUserNumero" placeholder="EMP-001 (opcional)"></div>
         <div class="ff"><label class="fl">Rol *</label>
@@ -243,9 +247,10 @@ tbody td{padding:11px 15px;font-size:13px;}
           <small style="color:var(--mist);font-size:10px;margin-top:4px;">Solo llena si quieres cambiar la contraseña</small>
         </div>
       </div>
-      <div style="display:flex;gap:10px;margin-top:20px;">
+      <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;">
         <button class="btn-cancel" onclick="document.getElementById('modalEditUser').style.display='none'" style="flex:1;">Cancelar</button>
-        <button class="btn-save" onclick="saveEditUsuario()" style="flex:1;">💾 Guardar cambios</button>
+        <button class="btn-save" onclick="saveEditUsuario()" style="flex:2;">💾 Guardar cambios</button>
+        <button onclick="eliminarUsuario()" style="flex:1;padding:10px;border:1px solid var(--ng);border-radius:var(--rs);background:transparent;color:var(--ng);cursor:pointer;font-size:13px;">🗑 Eliminar</button>
       </div>
     </div>
   </div>
@@ -1237,18 +1242,13 @@ async function loadUsuariosAdmin() {
 }
 
 function editUsuario(u) {
-  // Llenar el modal de edición
-  document.getElementById('eUserId').value   = u.id;
+  document.getElementById('eUserId').value    = u.id;
   document.getElementById('eUserNombre').value = u.nombre||'';
+  document.getElementById('eUserEmail').value  = u.email||'';
   document.getElementById('eUserNumero').value = u.numero_empleado||'';
-  document.getElementById('eUserRol').value  = u.rol||'tecnico';
-  document.getElementById('eUserPass').value = '';
-  
-  // Mostrar/ocultar campo planta según rol
-  const rolSel = document.getElementById('eUserRol');
+  document.getElementById('eUserRol').value   = u.rol||'tecnico';
+  document.getElementById('eUserPass').value  = '';
   toggleEditPlantaWrap(u.rol);
-  
-  // Cargar clientes en el select de edición
   db.from('clientes').select('id,nombre').eq('activo',true).then(({data})=>{
     const sel = document.getElementById('eUserCliente');
     if (!sel) return;
@@ -1256,8 +1256,27 @@ function editUsuario(u) {
       (data||[]).map(c=>`<option value="${c.id}"${c.id===u.cliente_id?' selected':''}>${c.nombre}</option>`).join('');
     if (u.cliente_id) loadPlantasSelect(u.cliente_id, 'eUserPlanta');
   });
-
   document.getElementById('modalEditUser').style.display = 'flex';
+}
+
+async function eliminarUsuario() {
+  const id     = document.getElementById('eUserId').value;
+  const nombre = document.getElementById('eUserNombre').value;
+  if (!confirm(`¿Eliminar al usuario "${nombre}"?\n\nEsta acción no se puede deshacer.`)) return;
+  loader(true);
+  // Eliminar perfil de la tabla perfiles
+  await db.from('perfiles').delete().eq('id', id);
+  // Intentar eliminar de Auth (requiere permisos de admin en Supabase)
+  try {
+    await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${id}`, {
+      method: 'DELETE',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+    });
+  } catch(e) { console.warn('No se pudo eliminar de Auth:', e); }
+  loader(false);
+  document.getElementById('modalEditUser').style.display = 'none';
+  showToast('✅ Usuario eliminado correctamente');
+  loadUsuariosAdmin();
 }
 
 function toggleEditPlantaWrap(rol) {
@@ -1268,6 +1287,7 @@ function toggleEditPlantaWrap(rol) {
 async function saveEditUsuario() {
   const id      = document.getElementById('eUserId').value;
   const nombre  = document.getElementById('eUserNombre').value.trim();
+  const email   = document.getElementById('eUserEmail').value.trim();
   const numero  = document.getElementById('eUserNumero').value.trim();
   const rol     = document.getElementById('eUserRol').value;
   const pass    = document.getElementById('eUserPass').value.trim();
@@ -1275,12 +1295,14 @@ async function saveEditUsuario() {
   const planta  = document.getElementById('eUserPlanta')?.value||null;
 
   if (!nombre) { showToast('⚠ El nombre es obligatorio', true); return; }
+  if (!email)  { showToast('⚠ El usuario (correo) es obligatorio', true); return; }
 
   loader(true);
 
   // Actualizar perfil
   const { error } = await db.from('perfiles').update({
     nombre,
+    email,
     numero_empleado: numero||null,
     rol,
     cliente_id: rol==='cliente' ? cliente : null,
@@ -1294,7 +1316,6 @@ async function saveEditUsuario() {
 
   if (pass) {
     showToast('✅ Perfil actualizado. Para cambiar contraseña ve a Supabase → Authentication → Users');
-    // Copiar instrucción al clipboard
     navigator.clipboard?.writeText(`UPDATE auth.users SET encrypted_password = crypt('${pass}', gen_salt('bf')) WHERE id = '${id}';`);
     setTimeout(()=>showToast('📋 SQL copiado al portapapeles para cambiar contraseña'), 2000);
   } else {
