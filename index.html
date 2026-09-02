@@ -1231,7 +1231,7 @@ async function loadUsuariosAdmin() {
     const rolIcon  = u.rol==='admin'?'⚙️':u.rol==='tecnico'?'🔧':'👤';
     return `<tr>
       <td style="font-weight:500">${u.nombre}</td>
-      <td style="font-size:12px;color:var(--mist)">${u.id.substring(0,8)}...</td>
+      <td style="font-size:12px;color:var(--mist)">${u.email||u.id.substring(0,8)+'...'}</td>
       <td><span class="rbadge ${rolColor}">${rolIcon} ${u.rol}</span></td>
       <td>${u.clientes?.nombre||'—'}</td>
       <td>${u.plantas?.nombre||'—'}</td>
