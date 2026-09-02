@@ -1044,13 +1044,23 @@ async function loadPlantasAdmin() {
   const { data } = await db.from('plantas').select('*,clientes(nombre)').eq('activo',true).order('created_at',{ascending:false});
   const tbody = document.getElementById('tbPlantas');
   if (!tbody) return;
-  if (!data?.length) { tbody.innerHTML='<tr><td colspan="4" class="empty">Sin plantas registradas</td></tr>'; return; }
+  if (!data?.length) { tbody.innerHTML='<tr><td colspan="5" class="empty">Sin plantas registradas</td></tr>'; return; }
   tbody.innerHTML = data.map(p => `<tr>
     <td style="font-weight:500">${p.nombre}</td>
     <td>${p.clientes?.nombre||'—'}</td>
     <td>${p.ciudad||'—'}</td>
     <td>${p.contacto||'—'}</td>
+    <td><button class="btn-s" onclick="eliminarPlanta('${p.id}','${p.nombre}')" style="color:var(--ng);border-color:var(--ng);">🗑 Eliminar</button></td>
   </tr>`).join('');
+}
+
+async function eliminarPlanta(id, nombre) {
+  if (!confirm(`¿Desactivar la planta "${nombre}"?\n\nYa no aparecerá en los formularios pero sus datos se conservan.`)) return;
+  loader(true);
+  await db.from('plantas').update({activo:false}).eq('id', id);
+  loader(false);
+  showToast('✅ Planta desactivada correctamente');
+  loadPlantasAdmin();
 }
 
 function adminChangeTipo() {
@@ -1336,10 +1346,23 @@ async function loadClientesSelect(targetId) {
 async function loadAdminTable() {
   const { data } = await db.from('equipos').select('*,clientes(nombre),plantas(nombre)').order('tipo').order('no_serie');
   const tbody = document.getElementById('tbAdmin');
-  if (!data?.length) { tbody.innerHTML='<tr><td colspan="7" class="empty">Sin equipos</td></tr>'; return; }
+  if (!data?.length) { tbody.innerHTML='<tr><td colspan="8" class="empty">Sin equipos</td></tr>'; return; }
+
+  // Agregar botón de eliminar seleccionados si no existe
+  if (!document.getElementById('btnEliminarMultiple')) {
+    const btnWrap = document.createElement('div');
+    btnWrap.id = 'btnEliminarMultiple';
+    btnWrap.style.cssText = 'display:none;margin-bottom:10px;gap:8px;align-items:center;';
+    btnWrap.innerHTML = `
+      <button class="btn-s" style="color:var(--ng);border-color:var(--ng);" onclick="eliminarSeleccionados()">🗑 Eliminar seleccionados (<span id="countSeleccionados">0</span>)</button>
+      <button class="btn-s" onclick="deseleccionarTodos()">Deseleccionar todos</button>`;
+    tbody.parentElement.parentElement.insertBefore(btnWrap, tbody.parentElement);
+  }
+
   tbody.innerHTML = data.map(e => {
     const t = TIPOS[e.tipo]||{icon:'🔧',label:e.tipo};
     return `<tr>
+      <td><input type="checkbox" class="eq-check" value="${e.id}" data-serie="${e.no_serie}" onchange="actualizarConteoSeleccion()"/></td>
       <td style="font-weight:500">${e.no_serie}</td>
       <td>${e.area}</td>
       <td>${t.icon} ${t.label}</td>
@@ -1353,6 +1376,33 @@ async function loadAdminTable() {
       </td>
     </tr>`;
   }).join('');
+}
+
+function actualizarConteoSeleccion() {
+  const checks = document.querySelectorAll('.eq-check:checked');
+  const wrap = document.getElementById('btnEliminarMultiple');
+  const count = document.getElementById('countSeleccionados');
+  if (count) count.textContent = checks.length;
+  if (wrap) wrap.style.display = checks.length > 0 ? 'flex' : 'none';
+}
+
+function deseleccionarTodos() {
+  document.querySelectorAll('.eq-check').forEach(c => c.checked = false);
+  actualizarConteoSeleccion();
+}
+
+async function eliminarSeleccionados() {
+  const checks = [...document.querySelectorAll('.eq-check:checked')];
+  if (!checks.length) return;
+  const series = checks.map(c => c.dataset.serie).join(', ');
+  if (!confirm(`¿Eliminar ${checks.length} equipo(s)?\n\n${series}\n\nEsta acción no se puede deshacer.`)) return;
+  loader(true);
+  for (const c of checks) {
+    await db.from('equipos').update({activo:false}).eq('id', c.value);
+  }
+  loader(false);
+  showToast(`✅ ${checks.length} equipo(s) eliminados`);
+  loadAdminTable();
 }
 
 async function saveEquipo() {
@@ -2333,7 +2383,7 @@ function renderForm() {
         <div class="ff"><label class="fl">Tipo de equipo</label><input class="fi" value="${TIPOS[e.tipo]?.label||e.tipo}" readonly style="opacity:.6"/></div>
         <div class="ff"><label class="fl">No. de serie</label><input class="fi" id="fSerie" value="${e.no_serie||''}" readonly style="opacity:.6"/></div>
         <div class="ff"><label class="fl">Marca</label><input class="fi" id="fMarca" value="${e.marca||''}"/></div>
-        <div class="ff"><label class="fl">Fecha de fabricación</label><input class="fi" id="fFabricacion" value="${e.fecha_fabricacion||''}" placeholder="AAAA-MM"/></div>
+        <div class="ff"><label class="fl">Fecha de fabricación</label><input class="fi" id="fFabricacion" value="${e.fecha_fabricacion||'Sin registro'}" readonly style="opacity:.6;cursor:not-allowed;" title="Dato registrado del equipo"/></div>
         <div class="ff"><label class="fl">Fecha de inspección</label>
           <input class="fi" type="date" id="fFecha" value="${today}" readonly style="opacity:.7;cursor:not-allowed;" title="La fecha se registra automáticamente"/>
           <small style="color:var(--mist);font-size:10px;">📅 Se registra la fecha actual automáticamente</small>
@@ -2412,11 +2462,11 @@ function renderForm() {
       ${radio('Accesible','acc',['SI','NO'])}
       ${radio('Señalizado','sen',['SI','NO','DAÑADO'])}
       ${radio('Gabinete','gab',['OK','N/A'])}
-      ${radio('Carga','carga',['OK','BAJA'])}
+      ${radio('Carga','carga',['OK','BAJA','SOBRECARGA'])}
       ${radio('Manguera / Boquilla','man',['OK','DAÑADA','N/A'])}
       ${radio('Seguro y cola de rata','seg',['SI','NO'])}
       ${radio('Cilindro','cil',['OK','DAÑADO'])}
-      ${radio('Estado collarín','col',['OK','DAÑADO'])}
+      ${radio('Estado collarín','col',['OK','DAÑADO','NO'])}
       ${radio('Estado llantas','lla',['OK','DAÑADO','N/A'])}
       ${radio('Tarjeta de inspección','tarj',['OK','NO'])}
       ${radio('Altura NOM-002','nom',['SI','NO'])}
@@ -2980,6 +3030,18 @@ const AREAS_DATA = {
   'TUBERIAS':                [],
   'OFICINAS':                [],
   'INFORMATICA (DATA CENTER)': [],
+  'FOSA DE TANQUE':          [],
+  'SUBESTACION PRODUCCION':  [],
+  'SUBESTACION EM':          [],
+  'ESTACION DE GAS':         [],
+  'TANQUES CRIOGENICOS':     [],
+  'CISTERNAS':               [],
+  'ALMACEN COMBUSTIBLE':     [],
+  'PTA':                     [],
+  'ALMACEN DE CILINDROS':    [],
+  'ESTACION DE OXICORTE':    [],
+  'HORNO POLIN':             [],
+  'SALA ELECTRICA':          [],
 };
 
 function buildAreaSelect(id, onchangeFn='') {
