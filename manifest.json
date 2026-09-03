@@ -1,0 +1,22 @@
+{
+  "name": "AS Industrial — Portal de Inspecciones",
+  "short_name": "AS Industrial",
+  "description": "Portal de inspección de equipos de seguridad contra incendios",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0d0c",
+  "theme_color": "#E8390E",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/logo_etiqueta_1.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo_etiqueta_1.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
