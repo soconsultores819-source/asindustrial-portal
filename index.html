@@ -199,6 +199,12 @@ tbody td{padding:11px 15px;font-size:13px;}
   .chk-grid{grid-template-columns:1fr 1fr;}
 }
 </style>
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#E8390E">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="AS Industrial">
   <!-- QR Scanner library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
   <!-- QR Generator library -->
@@ -981,6 +987,15 @@ const SUPA_URL = 'https://aidawdimcqxuqgcurrfb.supabase.co';
 const SUPA_KEY = 'sb_publishable_WDwZrSdH3P1MvJeobpfb0Q_33cmbnrn';
 const { createClient } = supabase;
 const db = createClient(SUPA_URL, SUPA_KEY);
+
+// ── SERVICE WORKER (PWA offline) ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(() => console.log('SW registrado ✅'))
+      .catch(err => console.warn('SW error:', err));
+  });
+}
 
 let currentUser = null, currentPerfil = null, currentEquipo = null;
 
