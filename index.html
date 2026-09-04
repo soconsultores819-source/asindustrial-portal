@@ -1112,27 +1112,29 @@ function adminChangeTipo() {
   document.getElementById('aAgenteWrap').style.display    = tipo === 'extintor' ? 'flex' : 'none';
 }
 
-function toggleAddForm() {
+async function toggleAddForm() {
   const f = document.getElementById('addEquipoForm');
   const isOpening = f.style.display === 'none';
   f.style.display = isOpening ? 'block' : 'none';
   if (isOpening) {
-    // Cargar áreas desde Supabase y poblar el select
-    loadAreasFromDB().then(() => {
-      const sel = document.getElementById('aArea');
-      if (sel) {
-        sel.innerHTML = '<option value="">— Selecciona área —</option>' +
-          Object.keys(window.AREAS_DATA||{}).map(a =>
-            `<option value="${a}">${a}</option>`
-          ).join('');
-      }
-      // Limpiar subáreas
-      const subSel = document.getElementById('aSubArea');
-      if (subSel) {
-        subSel.innerHTML = '<option value="">— Selecciona área primero —</option>';
-        subSel.disabled = true;
-      }
-    });
+    // Esperar a que las áreas estén cargadas
+    if (window._areasLoaded) await window._areasLoaded;
+    // Si aún no hay áreas, cargar ahora
+    if (!Object.keys(window.AREAS_DATA||{}).length) {
+      await loadAreasFromDB();
+    }
+    const sel = document.getElementById('aArea');
+    if (sel) {
+      sel.innerHTML = '<option value="">— Selecciona área —</option>' +
+        Object.keys(window.AREAS_DATA||{}).map(a =>
+          `<option value="${a}">${a}</option>`
+        ).join('');
+    }
+    const subSel = document.getElementById('aSubArea');
+    if (subSel) {
+      subSel.innerHTML = '<option value="">— Selecciona área primero —</option>';
+      subSel.disabled = true;
+    }
   }
 }
 
@@ -2030,30 +2032,30 @@ function showApp() {
     goTab('ayudante');
     // Cargar clientes en el select del ayudante
     loadClientesSelect('ayCliente');
-    // Poblar áreas del ayudante
-    const ayAreaSel = document.getElementById('ayArea');
-    if (ayAreaSel) {
-      Object.keys(AREAS_DATA).forEach(a => {
-        const opt = document.createElement('option');
-        opt.value = a; opt.textContent = a;
-        ayAreaSel.appendChild(opt);
-      });
-    }
+    // Poblar áreas del ayudante desde Supabase
+    loadAreasFromDB().then(() => {
+      const ayAreaSel = document.getElementById('ayArea');
+      if (ayAreaSel) {
+        ayAreaSel.innerHTML = '<option value="">— Selecciona área —</option>' +
+          Object.keys(window.AREAS_DATA||{}).map(a =>
+            `<option value="${a}">${a}</option>`
+          ).join('');
+      }
+    });
     // Verificar si hay equipo pendiente de inspección (segunda visita)
     checkEquipoPendienteAyudante();
   } else {
     goTab('dash');
     loadDashboard();
-    loadAreasFromDB().then(() => {
-      // Poblar selects de área una vez cargadas desde Supabase
+    // Cargar áreas y guardar la promesa globalmente
+    window._areasLoaded = loadAreasFromDB().then(() => {
       ['aArea','ayArea'].forEach(id => {
         const sel = document.getElementById(id);
-        if (!sel || sel.options.length > 1) return;
-        Object.keys(window.AREAS_DATA||{}).forEach(a => {
-          const opt = document.createElement('option');
-          opt.value = a; opt.textContent = a;
-          sel.appendChild(opt);
-        });
+        if (!sel) return;
+        sel.innerHTML = '<option value="">— Selecciona área —</option>' +
+          Object.keys(window.AREAS_DATA||{}).map(a =>
+            `<option value="${a}">${a}</option>`
+          ).join('');
       });
     });
   }
