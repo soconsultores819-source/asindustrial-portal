@@ -1117,14 +1117,22 @@ function toggleAddForm() {
   const isOpening = f.style.display === 'none';
   f.style.display = isOpening ? 'block' : 'none';
   if (isOpening) {
-    const sel = document.getElementById('aArea');
-    if (sel && sel.options.length <= 1) {
-      Object.keys(AREAS_DATA).forEach(a => {
-        const opt = document.createElement('option');
-        opt.value = a; opt.textContent = a;
-        sel.appendChild(opt);
-      });
-    }
+    // Cargar áreas desde Supabase y poblar el select
+    loadAreasFromDB().then(() => {
+      const sel = document.getElementById('aArea');
+      if (sel) {
+        sel.innerHTML = '<option value="">— Selecciona área —</option>' +
+          Object.keys(window.AREAS_DATA||{}).map(a =>
+            `<option value="${a}">${a}</option>`
+          ).join('');
+      }
+      // Limpiar subáreas
+      const subSel = document.getElementById('aSubArea');
+      if (subSel) {
+        subSel.innerHTML = '<option value="">— Selecciona área primero —</option>';
+        subSel.disabled = true;
+      }
+    });
   }
 }
 
@@ -3268,7 +3276,7 @@ function updateSubAreas(areaId, subAreaId) {
   const area = document.getElementById(areaId)?.value;
   const sel  = document.getElementById(subAreaId);
   if (!sel) return;
-  const subs = AREAS_DATA[area] || [];
+  const subs = (window.AREAS_DATA || AREAS_DATA)[area] || [];
   if (subs.length === 0) {
     sel.innerHTML = '<option value="">— Sin sub áreas —</option>';
     sel.disabled = true;
