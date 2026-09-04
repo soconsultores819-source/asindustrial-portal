@@ -1300,6 +1300,17 @@ async function loadAreasFromDB() {
   if (data?.length) {
     window.AREAS_DATA = {};
     data.forEach(a => { window.AREAS_DATA[a.nombre] = a.sub_areas || []; });
+
+    // Actualizar todos los selects de área que estén visibles
+    ['aArea','ayArea','fArea'].forEach(id => {
+      const sel = document.getElementById(id);
+      if (!sel) return;
+      const currentVal = sel.value;
+      sel.innerHTML = '<option value="">— Selecciona área —</option>' +
+        Object.keys(window.AREAS_DATA).map(a =>
+          `<option value="${a}"${a===currentVal?' selected':''}>${a}</option>`
+        ).join('');
+    });
   }
 }
 
@@ -1996,7 +2007,18 @@ function showApp() {
   } else {
     goTab('dash');
     loadDashboard();
-    loadAreasFromDB();
+    loadAreasFromDB().then(() => {
+      // Poblar selects de área una vez cargadas desde Supabase
+      ['aArea','ayArea'].forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel || sel.options.length > 1) return;
+        Object.keys(window.AREAS_DATA||{}).forEach(a => {
+          const opt = document.createElement('option');
+          opt.value = a; opt.textContent = a;
+          sel.appendChild(opt);
+        });
+      });
+    });
   }
 }
 
