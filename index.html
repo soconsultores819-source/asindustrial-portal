@@ -3234,37 +3234,13 @@ function cerrarCandado() {
 }
 
 // ── ÁREAS Y SUBÁREAS ──
-const AREAS_DATA = {
-  'ACERIA':                  ['CASTER','HORNOS'],
-  'REDI':                    ['ALCO 1','ALCO 2','3 M5','SILOS','BRIQUETEADORA','MANEJO DE MATERIALES','VOLCADO','4M'],
-  'AGUAS AM2':               ['CONTACTO DIRECTO 1','CONTACTO DIRECTO 2'],
-  'MC2':                     [],
-  'ALMACEN GENERAL':         [],
-  'MOLINOS':                 [],
-  'COMPRESORES':             [],
-  'CSI':                     [],
-  'POLVOS':                  [],
-  'TUBERIAS':                [],
-  'OFICINAS':                [],
-  'INFORMATICA (DATA CENTER)': [],
-  'FOSA DE TANQUE':          [],
-  'SUBESTACION PRODUCCION':  [],
-  'SUBESTACION EM':          [],
-  'ESTACION DE GAS':         [],
-  'TANQUES CRIOGENICOS':     [],
-  'CISTERNAS':               [],
-  'ALMACEN COMBUSTIBLE':     [],
-  'PTA':                     [],
-  'ALMACEN DE CILINDROS':    [],
-  'ESTACION DE OXICORTE':    [],
-  'HORNO POLIN':             [],
-  'SALA ELECTRICA':          [],
-};
+// AREAS_DATA se carga dinámicamente desde Supabase via loadAreasFromDB()
+var AREAS_DATA = {};
 
 function buildAreaSelect(id, onchangeFn='') {
   return `<select class="fs" id="${id}" onchange="${onchangeFn}">
     <option value="">— Selecciona área —</option>
-    ${Object.keys(AREAS_DATA).map(a=>`<option value="${a}">${a}</option>`).join('')}
+    ${Object.keys(window.AREAS_DATA||{}).map(a=>`<option value="${a}">${a}</option>`).join('')}
   </select>`;
 }
 
