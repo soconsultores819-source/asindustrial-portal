@@ -979,6 +979,28 @@ tbody td{padding:11px 15px;font-size:13px;}
         </table></div>
       </div>
 
+      <!-- ÁREAS Y SUBÁREAS -->
+      <div style="margin-top:28px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div class="sec-title" style="margin:0">📍 Áreas y Subáreas</div>
+          <button class="btn-s fire" onclick="toggleAddArea()">+ Nueva área</button>
+        </div>
+        <div id="addAreaForm" style="display:none;background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:22px;margin-bottom:16px;">
+          <div class="sec-title" style="margin-bottom:14px;">Nueva área</div>
+          <div class="fgrid">
+            <div class="ff"><label class="fl">Nombre del área *</label>
+              <input class="fi" id="areaNombre" placeholder="Ej. TALLER MECÁNICO" style="text-transform:uppercase;"/></div>
+            <div class="ff"><label class="fl">Subáreas (separadas por coma)</label>
+              <input class="fi" id="areaSubAreas" placeholder="Ej. ZONA A, ZONA B, ZONA C"/></div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:14px;">
+            <button class="btn-cancel" style="flex:0;padding:10px 18px;" onclick="toggleAddArea()">Cancelar</button>
+            <button class="btn-save" style="flex:0;padding:10px 20px;" onclick="saveArea()">Guardar área</button>
+          </div>
+        </div>
+        <div id="listaAreas" style="display:flex;flex-direction:column;gap:10px;"></div>
+      </div>
+
     </div>
   </div>
 
@@ -1181,6 +1203,104 @@ async function updateCliente() {
   closeEditCliente();
   loadClientesAdmin();
   loadClientesSelect();
+}
+
+// ── ÁREAS Y SUBÁREAS ──
+function toggleAddArea() {
+  const f = document.getElementById('addAreaForm');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  if (f.style.display === 'block') {
+    document.getElementById('areaNombre').value = '';
+    document.getElementById('areaSubAreas').value = '';
+  }
+}
+
+async function loadAreasAdmin() {
+  const { data } = await db.from('areas').select('*').eq('activo', true).order('nombre');
+  const lista = document.getElementById('listaAreas');
+  if (!lista) return;
+  if (!data?.length) {
+    lista.innerHTML = '<div style="color:var(--mist);font-size:13px;padding:12px;">No hay áreas registradas.</div>';
+    return;
+  }
+  lista.innerHTML = data.map(a => `
+    <div style="background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--rs);padding:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div style="font-weight:700;font-size:14px;">${a.nombre}</div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn-s" onclick="agregarSubArea('${a.id}','${a.nombre}')">+ Subárea</button>
+          <button class="btn-s" onclick="eliminarArea('${a.id}','${a.nombre}')" style="color:var(--ng);border-color:var(--ng);">🗑</button>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${(a.sub_areas||[]).length
+          ? (a.sub_areas).map(s => `
+            <span style="background:rgba(255,255,255,.07);border-radius:20px;padding:3px 10px;font-size:12px;display:flex;align-items:center;gap:6px;">
+              ${s}
+              <span onclick="eliminarSubArea('${a.id}',${JSON.stringify(a.sub_areas)},${JSON.stringify(s)})" style="cursor:pointer;color:var(--mist);font-size:10px;">✕</span>
+            </span>`).join('')
+          : '<span style="color:var(--mist);font-size:12px;">Sin subáreas</span>'
+        }
+      </div>
+    </div>`).join('');
+
+  // Actualizar AREAS_DATA global con los datos de Supabase
+  window.AREAS_DATA = {};
+  data.forEach(a => { window.AREAS_DATA[a.nombre] = a.sub_areas || []; });
+}
+
+async function saveArea() {
+  const nombre = document.getElementById('areaNombre').value.trim().toUpperCase();
+  const subStr = document.getElementById('areaSubAreas').value.trim();
+  if (!nombre) { showToast('⚠ El nombre del área es obligatorio', true); return; }
+  const sub_areas = subStr ? subStr.split(',').map(s => s.trim().toUpperCase()).filter(Boolean) : [];
+  loader(true);
+  const { error } = await db.from('areas').insert({ nombre, sub_areas });
+  loader(false);
+  if (error) { showToast('❌ Error: ' + error.message, true); return; }
+  showToast('✅ Área agregada correctamente');
+  toggleAddArea();
+  loadAreasAdmin();
+}
+
+async function agregarSubArea(id, nombreArea) {
+  const sub = prompt(`Agregar subárea a "${nombreArea}":\n\nEscribe el nombre de la nueva subárea:`);
+  if (!sub?.trim()) return;
+  const { data } = await db.from('areas').select('sub_areas').eq('id', id).single();
+  const nuevas = [...(data?.sub_areas || []), sub.trim().toUpperCase()];
+  loader(true);
+  await db.from('areas').update({ sub_areas: nuevas }).eq('id', id);
+  loader(false);
+  showToast('✅ Subárea agregada');
+  loadAreasAdmin();
+}
+
+async function eliminarSubArea(id, subAreas, subAEliminar) {
+  if (!confirm(`¿Eliminar la subárea "${subAEliminar}"?`)) return;
+  const nuevas = subAreas.filter(s => s !== subAEliminar);
+  loader(true);
+  await db.from('areas').update({ sub_areas: nuevas }).eq('id', id);
+  loader(false);
+  showToast('✅ Subárea eliminada');
+  loadAreasAdmin();
+}
+
+async function eliminarArea(id, nombre) {
+  if (!confirm(`¿Desactivar el área "${nombre}"?\n\nYa no aparecerá en los formularios.`)) return;
+  loader(true);
+  await db.from('areas').update({ activo: false }).eq('id', id);
+  loader(false);
+  showToast('✅ Área desactivada');
+  loadAreasAdmin();
+}
+
+// ── CARGAR ÁREAS DESDE SUPABASE EN LUGAR DEL OBJETO ESTÁTICO ──
+async function loadAreasFromDB() {
+  const { data } = await db.from('areas').select('nombre,sub_areas').eq('activo', true).order('nombre');
+  if (data?.length) {
+    window.AREAS_DATA = {};
+    data.forEach(a => { window.AREAS_DATA[a.nombre] = a.sub_areas || []; });
+  }
 }
 
 // ── USUARIOS ──
@@ -1876,6 +1996,7 @@ function showApp() {
   } else {
     goTab('dash');
     loadDashboard();
+    loadAreasFromDB();
   }
 }
 
@@ -1890,7 +2011,7 @@ function goTab(tab) {
   const el = document.getElementById('p'+T); if(el) el.style.display='flex';
   const tb = document.getElementById('t'+T); if(tb) tb.classList.add('active');
   if(tab==='equipos') loadEquipos();
-  if(tab==='admin')   { loadAdminTable(); loadClientesSelect(); loadPlantasAdmin(); loadClientesAdmin(); loadUsuariosAdmin();
+  if(tab==='admin')   { loadAdminTable(); loadClientesSelect(); loadPlantasAdmin(); loadClientesAdmin(); loadUsuariosAdmin(); loadAreasAdmin();
     // Poblar select de áreas en formulario admin
     const aAreaSel = document.getElementById('aArea');
     if (aAreaSel && aAreaSel.options.length <= 1) {
