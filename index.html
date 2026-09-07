@@ -1247,7 +1247,7 @@ async function loadAreasAdmin() {
           ? (a.sub_areas).map(s => `
             <span style="background:rgba(255,255,255,.07);border-radius:20px;padding:3px 10px;font-size:12px;display:flex;align-items:center;gap:6px;">
               ${s}
-              <span onclick="eliminarSubArea('${a.id}',${JSON.stringify(a.sub_areas)},${JSON.stringify(s)})" style="cursor:pointer;color:var(--mist);font-size:10px;">✕</span>
+              <span onclick="eliminarSubAreaClick(this)" data-area-id="${a.id}" data-sub="${s.replace(/"/g,'&quot;')}" style="cursor:pointer;color:var(--mist);font-size:10px;">✕</span>
             </span>`).join('')
           : '<span style="color:var(--mist);font-size:12px;">Sin subáreas</span>'
         }
@@ -1311,6 +1311,19 @@ async function confirmarSubArea() {
   loader(false);
   modal.style.display = 'none';
   showToast('✅ Subárea agregada');
+  loadAreasAdmin();
+}
+
+async function eliminarSubAreaClick(el) {
+  const id = el.dataset.areaId;
+  const sub = el.dataset.sub;
+  if (!confirm(`¿Eliminar la subárea "${sub}"?`)) return;
+  const { data } = await db.from('areas').select('sub_areas').eq('id', id).single();
+  const nuevas = (data?.sub_areas||[]).filter(s => s !== sub);
+  loader(true);
+  await db.from('areas').update({ sub_areas: nuevas }).eq('id', id);
+  loader(false);
+  showToast('✅ Subárea eliminada');
   loadAreasAdmin();
 }
 
