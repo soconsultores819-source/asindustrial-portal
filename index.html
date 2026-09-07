@@ -2309,21 +2309,21 @@ async function loadDashboard() {
     } else {
       const maxP = Math.max(...plantaCounts, 1);
       const barW = Math.max(28, Math.floor(260/plantaLabels.length)-6);
-      const chartH = 160, labelH = 50;
+      const chartH = 140, labelH = 50, topPad = 20;
       const totalW = plantaLabels.length*(barW+8);
       let svgBars = plantaLabels.map((label, i) => {
         const h = Math.round((plantaCounts[i]/maxP)*chartH);
         const x = i*(barW+8);
-        const y = chartH-h;
+        const y = topPad + (chartH - h);
         const shortLabel = label.length>10 ? label.substring(0,10)+'…' : label;
         return `
           <rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="#E8390E" rx="3"/>
-          <text x="${x+barW/2}" y="${y-4}" text-anchor="middle" fill="#C4BBB8" font-size="11">${plantaCounts[i]}</text>
-          <text x="${x+barW/2}" y="${chartH+16}" text-anchor="middle" fill="#8A7F7A" font-size="10">${shortLabel || 'Sin nombre'}</text>
+          <text x="${x+barW/2}" y="${Math.max(topPad-4, y-4)}" text-anchor="middle" fill="#C4BBB8" font-size="11">${plantaCounts[i]}</text>
+          <text x="${x+barW/2}" y="${topPad+chartH+16}" text-anchor="middle" fill="#8A7F7A" font-size="10">${shortLabel || 'Sin nombre'}</text>
         `;
       }).join('');
       grafPlanta.innerHTML = `
-        <svg width="100%" viewBox="0 0 ${Math.max(totalW,260)} ${chartH+labelH}" xmlns="http://www.w3.org/2000/svg">
+        <svg width="100%" viewBox="0 0 ${Math.max(totalW,260)} ${topPad+chartH+labelH}" xmlns="http://www.w3.org/2000/svg">
           ${svgBars}
         </svg>`;
     }
