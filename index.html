@@ -198,6 +198,12 @@ tbody td{padding:11px 15px;font-size:13px;}
   .info-grid{grid-template-columns:1fr 1fr;}
   .chk-grid{grid-template-columns:1fr 1fr;}
 }
+@media(max-width:900px){
+  .dash-kpi{grid-template-columns:1fr 1fr!important;}
+}
+@media(max-width:560px){
+  .dash-kpi{grid-template-columns:1fr!important;}
+}
 </style>
   <!-- PWA -->
   <link rel="manifest" href="/manifest.json">
@@ -420,7 +426,7 @@ tbody td{padding:11px 15px;font-size:13px;}
       </div>
     </div>
     <!-- 4 tarjetas horizontales -->
-    <div class="dash-kpi" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;align-items:start;width:100%;box-sizing:border-box;">
+    <div class="dash-kpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;align-items:start;width:100%;box-sizing:border-box;">
 
       <!-- Tarjeta 1: Total Equipos -->
       <div style="background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:24px;text-align:center;">
