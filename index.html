@@ -211,6 +211,8 @@ tbody td{padding:11px 15px;font-size:13px;}
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="AS Industrial">
+  <!-- SheetJS para exportar Excel -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <!-- QR Scanner library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
   <!-- QR Generator library -->
@@ -1840,10 +1842,8 @@ async function verFichaDesdeReporte(noSerie) {
 function exportarExcel() {
   if (!reporteData.length) return;
 
-  const BOM = '\uFEFF';
   const SUPA_STORAGE = 'https://aidawdimcqxuqgcurrfb.supabase.co/storage/v1/object/public/inspecciones/';
 
-  // Campos comunes + campos específicos por tipo
   const getCampos = (r) => {
     const t = r._tipo;
     if (t==='extintor') return {
@@ -1866,6 +1866,106 @@ function exportarExcel() {
       'Peso CO2': r.peso_co2||'',
       'Delimitado': r.delimitado||'',
     };
+    if (t==='hidrante') return {
+      'Tipo Hidrante': r.tipo_hidrante||'',
+      'Manguera': r.manguera||'',
+      'Chiflón': r.chiflon||'',
+      'Coples': r.coples||'',
+      'Espuma': r.espuma||'',
+      'Instrucciones': r.instrucciones||'',
+      'Válvula': r.valvula||'',
+    };
+    if (t==='traje_bomberos') return {
+      'Tipo Camilla': r.tipo_traje||'',
+      'Señalizada': r.senalizada||'',
+      'Funda': r.funda||'',
+      'Sujeción': r.sujecion||'',
+      'Estado': r.estado_traje||'',
+      'Inmovilización': r.inmovilizacion||'',
+    };
+    if (t==='camilla') return {
+      'Tipo Camilla': r.tipo_camilla||'',
+      'Araña': r.arana||'',
+      'Pulpo': r.pulpo||'',
+    };
+    if (t==='regadera') return {
+      'Tipo Regadera': r.tipo_regadera||'',
+      'Nivel Agua': r.nivel_agua||'',
+      'Velocidad Chorro': r.velocidad_chorro||'',
+      'Sin Contaminantes': r.sin_contaminantes||'',
+      'Altura Adecuada': r.altura_adecuada||'',
+      'Posición': r.posicion||'',
+      'Difusor': r.difusor||'',
+      'Rociadores': r.rociadores||'',
+      'Tapón Rociadores': r.tapon_rociadores||'',
+      'Agua Buen Estado': r.agua_buen_estado||'',
+    };
+    return {};
+  };
+
+  const allCampos = new Set();
+  reporteData.forEach(r => Object.keys(getCampos(r)).forEach(k => allCampos.add(k)));
+  const camposArr = [...allCampos];
+
+  const baseHeaders = ['Fecha','No. Serie','Área','Tipo','Cliente','Planta','Técnico','No. Empleado','Estado','Observaciones'];
+  const headers = [...baseHeaders, ...camposArr, 'Ver Fotos'];
+
+  // Construir filas de datos
+  const wsData = [headers];
+  reporteData.forEach(r => {
+    const t = TIPOS[r._tipo]||{label:r._tipo};
+    const est = r.estado==='ok'?'OK':r.estado==='observacion'?'Observación':'Crítico';
+    const campos = getCampos(r);
+    const fotosUrls = (r._fotos||[]).map(f => SUPA_STORAGE + f.storage_path);
+    const primerUrl = fotosUrls[0] || '';
+
+    const base = [
+      r.fecha_inspeccion||'',
+      r.equipos?.no_serie||'',
+      r.equipos?.area||'',
+      t.label,
+      r.equipos?.clientes?.nombre||'',
+      r.equipos?.plantas?.nombre||'',
+      r.tecnico_nombre||'',
+      r.tecnico_numero||'',
+      est,
+      r.observaciones||'',
+    ];
+    const camposVals = camposArr.map(k => campos[k]||'');
+
+    // Para la columna de fotos usamos fórmula HYPERLINK de Excel
+    const fotosCell = primerUrl
+      ? { f: `HYPERLINK("${primerUrl}","Ver foto")` }
+      : '';
+
+    wsData.push([...base, ...camposVals, fotosCell]);
+  });
+
+  // Crear workbook con SheetJS
+  const XLSX = window.XLSX;
+  if (!XLSX) { showToast('❌ Error: librería XLSX no disponible', true); return; }
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Estilo de encabezado (ancho de columnas)
+  const colWidths = headers.map((h, i) => {
+    if (i === headers.length - 1) return { wch: 15 }; // Fotos
+    if (i < 2) return { wch: 14 };
+    return { wch: Math.max(h.length + 2, 12) };
+  });
+  ws['!cols'] = colWidths;
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Inspecciones');
+
+  const mes = document.getElementById('rMes').value || 'reporte';
+  const cli = document.getElementById('rCliente').options[document.getElementById('rCliente').selectedIndex].text;
+  const fileName = `AS_Industrial_${cli}_${mes}.xlsx`.replace(/\s+/g,'_');
+
+  XLSX.writeFile(wb, fileName);
+  showToast('✅ Reporte Excel descargado con fotos como hipervínculos');
+}
+
     if (t==='hidrante') return {
       'Tipo Hidrante': r.tipo_hidrante||'',
       'Prueba Hidrostática': r.prueba_hidrostatica||'',
