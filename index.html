@@ -1007,6 +1007,26 @@ tbody td{padding:11px 15px;font-size:13px;}
         <div id="listaAreas" style="display:flex;flex-direction:column;gap:10px;"></div>
       </div>
 
+      <!-- CAPACIDADES -->
+      <div style="margin-top:28px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div class="sec-title" style="margin:0">⚖️ Capacidades de extintores</div>
+          <button class="btn-s fire" onclick="toggleAddCapacidad()">+ Nueva capacidad</button>
+        </div>
+        <div id="addCapacidadForm" style="display:none;background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:22px;margin-bottom:16px;">
+          <div class="sec-title" style="margin-bottom:14px;">Nueva capacidad</div>
+          <div class="fgrid">
+            <div class="ff"><label class="fl">Valor *</label>
+              <input class="fi" id="capValor" placeholder="Ej. 30 kg (CO2), 15 lt..."/></div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:14px;">
+            <button class="btn-cancel" style="flex:0;padding:10px 18px;" onclick="toggleAddCapacidad()">Cancelar</button>
+            <button class="btn-save" style="flex:0;padding:10px 20px;" onclick="saveCapacidad()">Guardar capacidad</button>
+          </div>
+        </div>
+        <div id="listaCapacidades" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+      </div>
+
     </div>
   </div>
 
@@ -1219,6 +1239,58 @@ async function updateCliente() {
   closeEditCliente();
   loadClientesAdmin();
   loadClientesSelect();
+}
+
+// ── CAPACIDADES ──
+var CAPACIDADES_LIST = [];
+
+async function loadCapacidades() {
+  const { data } = await db.from('capacidades').select('*').eq('activo', true).order('valor');
+  if (!data?.length) return;
+  CAPACIDADES_LIST = data;
+  const lista = document.getElementById('listaCapacidades');
+  if (lista) {
+    lista.innerHTML = data.map(c => `
+      <span style="background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:5px 12px;font-size:13px;display:flex;align-items:center;gap:8px;">
+        ${c.valor}
+        ${['admin','supervisor'].includes(currentPerfil?.rol)
+          ? `<span onclick="eliminarCapacidad('${c.id}','${c.valor.replace(/'/g, "\'")}')" style="cursor:pointer;color:var(--mist);font-size:11px;">✕</span>`
+          : ''}
+      </span>`).join('');
+  }
+  const opts = '<option value="">— Selecciona —</option>' +
+    data.map(c => `<option value="${c.valor}">${c.valor}</option>`).join('');
+  ['ayCapacidad','aCapacidad','fCapacidad'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (sel) sel.innerHTML = opts;
+  });
+}
+
+function toggleAddCapacidad() {
+  const f = document.getElementById('addCapacidadForm');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  if (f.style.display === 'block') document.getElementById('capValor').value = '';
+}
+
+async function saveCapacidad() {
+  const valor = document.getElementById('capValor').value.trim();
+  if (!valor) { showToast('⚠ Escribe el valor de la capacidad', true); return; }
+  loader(true);
+  const { error } = await db.from('capacidades').insert({ valor });
+  loader(false);
+  if (error) { showToast('❌ Error: ' + error.message, true); return; }
+  showToast('✅ Capacidad agregada');
+  toggleAddCapacidad();
+  loadCapacidades();
+}
+
+async function eliminarCapacidad(id, valor) {
+  if (!confirm(`¿Eliminar la capacidad "${valor}"?`)) return;
+  loader(true);
+  await db.from('capacidades').update({ activo: false }).eq('id', id);
+  loader(false);
+  showToast('✅ Capacidad eliminada');
+  loadCapacidades();
 }
 
 // ── ÁREAS Y SUBÁREAS ──
@@ -2077,6 +2149,7 @@ function showApp() {
           ).join('');
       });
     });
+    loadCapacidades();
   }
 }
 
@@ -2091,7 +2164,7 @@ function goTab(tab) {
   const el = document.getElementById('p'+T); if(el) el.style.display='flex';
   const tb = document.getElementById('t'+T); if(tb) tb.classList.add('active');
   if(tab==='equipos') loadEquipos();
-  if(tab==='admin')   { loadAdminTable(); loadClientesSelect(); loadPlantasAdmin(); loadClientesAdmin(); loadUsuariosAdmin(); loadAreasAdmin();
+  if(tab==='admin')   { loadAdminTable(); loadClientesSelect(); loadPlantasAdmin(); loadClientesAdmin(); loadUsuariosAdmin(); loadAreasAdmin(); loadCapacidades();
     // Poblar select de áreas en formulario admin
     const aAreaSel = document.getElementById('aArea');
     if (aAreaSel && aAreaSel.options.length <= 1) {
