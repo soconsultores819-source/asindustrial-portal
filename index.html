@@ -2057,28 +2057,6 @@ function exportarExcel() {
       r.equipos?.clientes?.nombre||'',
       r.equipos?.plantas?.nombre||'',
       r.tecnico_nombre||'',
-      r.tecnico_numero||'',
-      est,
-      (r.observaciones||'').replace(/,/g,';'),
-    ];
-
-    const camposVals = camposArr.map(k => campos[k]||'');
-    return [...base, ...camposVals, fotosLinks].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
-  });
-
-  const csv = BOM + [headers.map(h=>`"${h}"`).join(','), ...rows].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  const mes  = document.getElementById('rMes').value || 'reporte';
-  const cli  = document.getElementById('rCliente').options[document.getElementById('rCliente').selectedIndex].text;
-  a.href = url;
-  a.download = `AS_Industrial_${cli}_${mes}.csv`.replace(/\s+/g,'_');
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('✅ Reporte descargado con checklist completo');
-}
-
 // ── PERFIL Y CONTRASEÑA ──
 function loadPerfil_UI() {
   if (!currentPerfil) return;
