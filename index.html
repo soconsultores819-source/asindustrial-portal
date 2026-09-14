@@ -2095,15 +2095,7 @@ function showApp() {
     // Cargar clientes en el select del ayudante
     loadClientesSelect('ayCliente');
     // Poblar áreas del ayudante desde Supabase
-    loadAreasFromDB().then(() => {
-      const ayAreaSel = document.getElementById('ayArea');
-      if (ayAreaSel) {
-        ayAreaSel.innerHTML = '<option value="">— Selecciona área —</option>' +
-          Object.keys(window.AREAS_DATA||{}).map(a =>
-            `<option value="${a}">${a}</option>`
-          ).join('');
-      }
-    });
+    loadAreasFromDB();
     // Verificar si hay equipo pendiente de inspección (segunda visita)
     checkEquipoPendienteAyudante();
   } else {
