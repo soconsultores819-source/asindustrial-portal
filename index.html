@@ -601,6 +601,15 @@ tbody td{padding:11px 15px;font-size:13px;}
               <option value="regadera">🚿 Regaderas/Lavaojos</option>
             </select>
           </div>
+          <div class="ff">
+            <label class="fl">Estado</label>
+            <select class="fs" id="rEstado">
+              <option value="">— Todos los estados —</option>
+              <option value="ok">✓ Exitoso</option>
+              <option value="observacion">⚠ Observación</option>
+              <option value="critico">✗ Crítico</option>
+            </select>
+          </div>
           <div class="ff" style="justify-content:flex-end;padding-top:20px;">
             <button class="btn-s fire" onclick="buscarReporte()" style="padding:11px 20px;font-size:14px;">🔍 Buscar</button>
           </div>
@@ -1746,6 +1755,7 @@ async function buscarReporte() {
   const plantaId  = document.getElementById('rPlanta')?.value || '';
   const mes       = document.getElementById('rMes').value;
   const tipo      = document.getElementById('rTipo').value;
+  const estadoFiltro = document.getElementById('rEstado')?.value || '';
 
   loader(true);
   reporteData = [];
@@ -1768,8 +1778,9 @@ async function buscarReporte() {
     const { data } = await q;
     if (data?.length) {
       const filtrado = data.filter(r => {
-        if (clienteId && r.equipos?.cliente_id !== clienteId) return false;
-        if (plantaId  && r.equipos?.planta_id  !== plantaId)  return false;
+        if (clienteId   && r.equipos?.cliente_id !== clienteId) return false;
+        if (plantaId    && r.equipos?.planta_id  !== plantaId)  return false;
+        if (estadoFiltro && r.estado !== estadoFiltro)           return false;
         return true;
       });
       for (const r of filtrado) {
