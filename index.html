@@ -2150,22 +2150,39 @@ function exportarPDF() {
   const mes = document.getElementById('rMes').value || '';
   const cliSel = document.getElementById('rCliente');
   const cli = cliSel.options[cliSel.selectedIndex]?.text || 'Todos';
+  const SUPA_STORAGE = 'https://aidawdimcqxuqgcurrfb.supabase.co/storage/v1/object/public/inspecciones/';
 
   const rows = reporteData.map(r => {
     const t   = TIPOS[r._tipo]||{label:r._tipo, icon:'🔧'};
-    const est = r.estado==='ok'?'<span style="color:#2D9E6B;font-weight:700;">✓ OK</span>'
-              : r.estado==='observacion'?'<span style="color:#C48A10;font-weight:700;">⚠ Obs</span>'
-              : '<span style="color:#C42B2B;font-weight:700;">✗ Crítico</span>';
+    const est = r.estado==='ok'
+      ? '<span style="color:#2D9E6B;font-weight:700;background:#E8F5EE;padding:2px 6px;border-radius:4px;">✓ OK</span>'
+      : r.estado==='observacion'
+      ? '<span style="color:#C48A10;font-weight:700;background:#FDF4DC;padding:2px 6px;border-radius:4px;">⚠ Obs</span>'
+      : '<span style="color:#C42B2B;font-weight:700;background:#FAEAEA;padding:2px 6px;border-radius:4px;">✗ Crítico</span>';
+
+    // Generar miniaturas de fotos
+    const fotosHTML = (r._fotos||[]).length > 0
+      ? '<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px;">' +
+        (r._fotos||[]).map(f =>
+          `<a href="${SUPA_STORAGE + f.storage_path}" target="_blank">
+            <img src="${SUPA_STORAGE + f.storage_path}"
+              style="width:52px;height:40px;object-fit:cover;border-radius:3px;border:1px solid #ddd;"
+              onerror="this.style.display='none'"/>
+          </a>`
+        ).join('') +
+        '</div>'
+      : '<span style="color:#aaa;font-size:9px;">Sin fotos</span>';
+
     return `<tr>
       <td>${r.fecha_inspeccion||'—'}</td>
       <td><b>${r.equipos?.no_serie||'—'}</b></td>
-      <td>${r.equipos?.area||'—'}</td>
+      <td>${r.equipos?.area||'—'}<br><span style="color:#888;font-size:9px;">${r.equipos?.plantas?.nombre||''}</span></td>
       <td>${t.icon} ${t.label}</td>
       <td>${r.equipos?.clientes?.nombre||'—'}</td>
-      <td>${r.equipos?.plantas?.nombre||'—'}</td>
       <td>${r.tecnico_nombre||'—'}</td>
       <td>${est}</td>
-      <td style="max-width:160px;white-space:normal;font-size:10px;">${r.observaciones||'—'}</td>
+      <td style="max-width:150px;white-space:normal;font-size:10px;">${r.observaciones||'—'}</td>
+      <td style="min-width:120px;">${fotosHTML}</td>
     </tr>`;
   }).join('');
 
@@ -2178,20 +2195,25 @@ function exportarPDF() {
   <title>Reporte AS Industrial</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box;}
-    body{font-family:Arial,sans-serif;font-size:11px;color:#1A1614;padding:20px;}
-    .header{background:#1A1614;color:#fff;padding:16px 20px;border-radius:8px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
-    .header h1{font-size:18px;}.header h1 span{color:#E8390E;}
-    .header p{font-size:10px;color:#C4BBB8;margin-top:4px;}
-    .stats{display:flex;gap:12px;margin-bottom:16px;}
-    .stat{flex:1;border:1px solid #ddd;border-radius:6px;padding:10px;text-align:center;}
-    .stat .num{font-size:24px;font-weight:900;}.stat .lbl{font-size:10px;color:#666;text-transform:uppercase;margin-top:2px;}
-    table{width:100%;border-collapse:collapse;font-size:10px;}
-    th{background:#1A1614;color:#fff;padding:7px 8px;text-align:left;font-size:10px;}
-    td{padding:6px 8px;border-bottom:1px solid #eee;vertical-align:top;}
+    body{font-family:Arial,sans-serif;font-size:10px;color:#1A1614;padding:16px;}
+    .header{background:#1A1614;color:#fff;padding:14px 18px;border-radius:8px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
+    .header h1{font-size:16px;}.header h1 span{color:#E8390E;}
+    .header p{font-size:9px;color:#C4BBB8;margin-top:3px;}
+    .stats{display:flex;gap:10px;margin-bottom:14px;}
+    .stat{flex:1;border:1px solid #ddd;border-radius:6px;padding:8px;text-align:center;}
+    .stat .num{font-size:22px;font-weight:900;}.stat .lbl{font-size:9px;color:#666;text-transform:uppercase;margin-top:2px;}
+    table{width:100%;border-collapse:collapse;font-size:9px;}
+    th{background:#1A1614;color:#fff;padding:6px 7px;text-align:left;font-size:9px;white-space:nowrap;}
+    td{padding:5px 7px;border-bottom:1px solid #eee;vertical-align:top;}
     tr:nth-child(even) td{background:#F9F9F9;}
-    .footer{margin-top:16px;text-align:center;font-size:9px;color:#999;border-top:1px solid #ddd;padding-top:8px;}
-    .print-btn{background:#E8390E;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px;}
-    @media print{.no-print{display:none!important;}body{padding:8px;}}
+    .footer{margin-top:14px;text-align:center;font-size:8px;color:#999;border-top:1px solid #ddd;padding-top:6px;}
+    .print-btn{background:#E8390E;color:#fff;border:none;padding:7px 14px;border-radius:5px;cursor:pointer;font-weight:700;font-size:11px;}
+    @media print{
+      .no-print{display:none!important;}
+      body{padding:6px;}
+      img{break-inside:avoid;}
+      tr{break-inside:avoid;}
+    }
   </style>
   </head><body>
   <div class="header">
@@ -2202,15 +2224,15 @@ function exportarPDF() {
     <button class="print-btn no-print" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
   </div>
   <div class="stats">
-    <div class="stat"><div class="num">${total}</div><div class="lbl">Total inspecciones</div></div>
+    <div class="stat"><div class="num">${total}</div><div class="lbl">Total</div></div>
     <div class="stat"><div class="num" style="color:#2D9E6B;">${ok}</div><div class="lbl">✓ Exitosas</div></div>
     <div class="stat"><div class="num" style="color:#C48A10;">${obs}</div><div class="lbl">⚠ Observación</div></div>
     <div class="stat"><div class="num" style="color:#C42B2B;">${crit}</div><div class="lbl">✗ Críticas</div></div>
   </div>
   <table>
     <thead><tr>
-      <th>Fecha</th><th>No. Serie</th><th>Área</th><th>Tipo</th>
-      <th>Cliente</th><th>Planta</th><th>Técnico</th><th>Estado</th><th>Observaciones</th>
+      <th>Fecha</th><th>No. Serie</th><th>Área / Planta</th><th>Tipo</th>
+      <th>Cliente</th><th>Técnico</th><th>Estado</th><th>Observaciones</th><th>Fotos</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>
@@ -2220,7 +2242,7 @@ function exportarPDF() {
   const win = window.open('', '_blank');
   win.document.write(html);
   win.document.close();
-  showToast('✅ PDF listo — usa Ctrl+P para guardar como PDF');
+  showToast('✅ PDF listo con fotos — usa Ctrl+P para guardar');
 }
 
 async function loadDashboard() {
