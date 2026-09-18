@@ -2107,6 +2107,8 @@ function showApp() {
     loadClientesSelect('ayCliente');
     // Poblar áreas del ayudante desde Supabase
     loadAreasFromDB();
+    // Cargar capacidades para el selector del ayudante
+    loadCapacidades();
     // Verificar si hay equipo pendiente de inspección (segunda visita)
     checkEquipoPendienteAyudante();
   } else {
