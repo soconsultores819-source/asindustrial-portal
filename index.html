@@ -2152,7 +2152,14 @@ function goTab(tab) {
     }
   }
   if(tab==='reportes') initReportes();
-  if(tab==='form' && currentEquipo) renderForm();
+  if(tab==='form' && currentEquipo) {
+    // Asegurar que capacidades estén cargadas antes de renderizar
+    if (!window.CAPACIDADES_LIST?.length) {
+      loadCapacidades().then(() => renderForm());
+    } else {
+      renderForm();
+    }
+  }
   if(tab==='perfil') loadPerfil_UI();
 }
 
@@ -2753,12 +2760,7 @@ function renderForm() {
       <div class="ff"><label class="fl">Capacidad</label>
         <select class="fs" id="fCapacidad">
           <option value="">— Selecciona —</option>
-          <option>1 kg</option><option>2 kg</option><option>2.5 kg</option>
-          <option>4 kg</option><option>4.5 kg</option><option>6 kg</option>
-          <option>9 kg</option><option>12 kg</option><option>20 kg</option>
-          <option>30 kg</option><option>50 kg</option>
-          <option>2.5 lt</option><option>5 lt</option><option>9 lt</option>
-          <option>2.3 kg (CO2)</option><option>4.5 kg (CO2)</option><option>6.8 kg (CO2)</option><option>10 kg (CO2)</option><option>22 kg (CO2)</option>
+          ${(window.CAPACIDADES_LIST||[]).map(c=>`<option value="${c.valor}"${e.capacidad===c.valor?' selected':''}>${c.valor}</option>`).join('')}
         </select>
       </div>
       <div class="ff"><label class="fl">Fecha de fabricación</label><input class="fi" type="date" id="fFabricacion"/></div>
