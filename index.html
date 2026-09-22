@@ -3880,23 +3880,25 @@ async function loadGraficaTecnicos() {
   }).join('');
 
   cont.innerHTML = `
-    <div style="overflow-x:auto;margin-bottom:20px;">
-      <svg width="100%" viewBox="0 0 ${totalW} ${totalH}" xmlns="http://www.w3.org/2000/svg" style="min-width:420px;display:block;">
-        ${bars}
-      </svg>
-    </div>
-    <div style="font-size:10px;font-weight:600;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">Desglose por día</div>
-    <div style="overflow-x:auto;border-radius:var(--rs);overflow:hidden;">
-      <table style="width:100%;border-collapse:collapse;font-size:11px;background:var(--coal);">
-        <thead>
-          <tr style="background:rgba(0,0,0,.3);">
-            <th style="text-align:left;padding:6px 10px;font-size:10px;color:var(--fog);">Técnico</th>
-            ${headerDias}
-            <th style="font-size:10px;color:var(--fog);padding:5px 8px;">Total</th>
-          </tr>
-        </thead>
-        <tbody>${filasTec}</tbody>
-      </table>
+    <div style="width:100%;">
+      <div style="overflow-x:auto;margin-bottom:20px;">
+        <svg width="100%" viewBox="0 0 ${totalW} ${totalH}" xmlns="http://www.w3.org/2000/svg" style="min-width:420px;display:block;">
+          ${bars}
+        </svg>
+      </div>
+      <div style="font-size:10px;font-weight:600;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;padding-top:4px;border-top:1px solid rgba(255,255,255,.06);">📅 Desglose por día</div>
+      <div style="overflow-x:auto;border-radius:var(--rs);overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;font-size:11px;background:var(--coal);">
+          <thead>
+            <tr style="background:rgba(0,0,0,.3);">
+              <th style="text-align:left;padding:6px 10px;font-size:10px;color:var(--fog);white-space:nowrap;">Técnico</th>
+              ${headerDias}
+              <th style="font-size:10px;color:var(--fog);padding:5px 8px;white-space:nowrap;">Total</th>
+            </tr>
+          </thead>
+          <tbody>${filasTec}</tbody>
+        </table>
+      </div>
     </div>
   `;
 }
