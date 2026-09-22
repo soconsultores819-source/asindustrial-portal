@@ -3870,11 +3870,11 @@ async function loadGraficaTecnicos() {
     const color = COLORES[i % COLORES.length];
     const pct = Math.round((d.total / totalInsp) * 100);
     const sN = nombre.length > 18 ? nombre.substring(0,17)+'...' : nombre;
-    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
-      <div style="width:12px;height:12px;border-radius:3px;background:${color};flex-shrink:0;"></div>
-      <div style="flex:1;font-size:12px;color:#C4BBB8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${sN}</div>
-      <div style="font-size:12px;font-weight:700;color:#fff;">${d.total}</div>
-      <div style="font-size:10px;color:#8A7F7A;min-width:30px;text-align:right;">${pct}%</div>
+    return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
+      <div style="width:10px;height:10px;border-radius:2px;background:${color};flex-shrink:0;"></div>
+      <div style="flex:1;font-size:11px;color:#C4BBB8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${sN}</div>
+      <div style="font-size:11px;font-weight:700;color:#fff;min-width:28px;text-align:right;">${d.total}</div>
+      <div style="font-size:10px;color:#8A7F7A;min-width:28px;text-align:right;">${pct}%</div>
     </div>`;
   }).join('');
 
@@ -3882,23 +3882,24 @@ async function loadGraficaTecnicos() {
   const diasUnicos = [...new Set(data.map(r=>r.fecha_inspeccion))].sort();
   const headerDias = diasUnicos.map(d => {
     const parts = d.split('-');
-    return `<th style="min-width:44px;font-size:10px;text-align:center;padding:7px 8px;color:var(--fog);font-weight:600;">${parts[2]}/${parts[1]}</th>`;
+    return '<th style="min-width:36px;font-size:9px;text-align:center;padding:5px 4px;color:var(--fog);font-weight:600;">'+parts[2]+'/'+parts[1]+'</th>';
   }).join('');
 
   const filasTec = tecnicos.map(([nombre, d], i) => {
     const color = COLORES[i % COLORES.length];
     const celdas = diasUnicos.map(dia => {
       const cnt = d.dias[dia] || 0;
-      const bg = cnt > 0 ? `background:${color}22;` : '';
-      return `<td style="text-align:center;font-size:11px;padding:6px 8px;min-width:44px;${bg}${cnt>0?`color:${color};font-weight:700;`:'color:#3A3530;'}">${cnt||'—'}</td>`;
+      const bg = cnt > 0 ? 'background:'+color+'22;' : '';
+      const fc = cnt > 0 ? 'color:'+color+';font-weight:700;' : 'color:#3A3530;';
+      return '<td style="text-align:center;font-size:10px;padding:4px 6px;min-width:36px;'+bg+fc+'">'+(cnt||'—')+'</td>';
     }).join('');
-    return `<tr style="border-bottom:1px solid rgba(255,255,255,.04);">
-      <td style="font-size:11px;font-weight:500;white-space:nowrap;padding:7px 12px;position:sticky;left:0;background:var(--coal);z-index:1;">
-        <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${color};margin-right:6px;"></span>${nombre}
-      </td>
-      ${celdas}
-      <td style="text-align:center;font-size:12px;font-weight:800;color:${color};padding:6px 10px;position:sticky;right:0;background:var(--coal);z-index:1;">${d.total}</td>
-    </tr>`;
+    return '<tr style="border-bottom:1px solid rgba(255,255,255,.04);">' +
+      '<td style="font-size:10px;font-weight:500;white-space:nowrap;padding:5px 10px;position:sticky;left:0;background:var(--coal);z-index:1;">' +
+        '<span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:'+color+';margin-right:5px;vertical-align:middle;"></span>'+nombre+
+      '</td>' +
+      celdas +
+      '<td style="text-align:center;font-size:11px;font-weight:800;color:'+color+';padding:4px 8px;position:sticky;right:0;background:var(--coal);z-index:1;">'+d.total+'</td>' +
+    '</tr>';
   }).join('');
 
   cont.innerHTML = `
@@ -3918,12 +3919,12 @@ async function loadGraficaTecnicos() {
       </div>
       <div style="font-size:10px;font-weight:600;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);">📅 Desglose por día</div>
       <div style="overflow-x:auto;border-radius:var(--rs);">
-        <table style="border-collapse:collapse;font-size:11px;background:var(--coal);min-width:max-content;">
+        <table style="border-collapse:collapse;font-size:10px;background:var(--coal);min-width:max-content;">
           <thead>
             <tr style="background:rgba(0,0,0,.3);">
-              <th style="text-align:left;padding:7px 12px;font-size:10px;color:var(--fog);white-space:nowrap;position:sticky;left:0;background:rgba(26,22,20,.95);z-index:1;">Técnico</th>
+              <th style="text-align:left;padding:5px 10px;font-size:9px;color:var(--fog);white-space:nowrap;position:sticky;left:0;background:rgba(26,22,20,.95);z-index:1;">Técnico</th>
               ${headerDias}
-              <th style="font-size:10px;color:var(--fire-l);padding:7px 10px;white-space:nowrap;position:sticky;right:0;background:rgba(26,22,20,.95);">Total</th>
+              <th style="font-size:9px;color:var(--fire-l);padding:5px 8px;white-space:nowrap;position:sticky;right:0;background:rgba(26,22,20,.95);">Total</th>
             </tr>
           </thead>
           <tbody>${filasTec}</tbody>
