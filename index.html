@@ -3846,16 +3846,17 @@ async function loadGraficaTecnicos() {
     const shortName   = nombre.length > 22 ? nombre.substring(0,21)+'…' : nombre;
     const shortPlanta = topPlanta.length > 30 ? topPlanta.substring(0,29)+'…' : topPlanta;
     const shortArea   = topArea.length > 30 ? topArea.substring(0,29)+'…' : topArea;
-    return \`<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-      <div style="min-width:130px;max-width:130px;text-align:right;font-size:11px;color:#C4BBB8;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">\${shortName}</div>
-      <div style="flex:1;position:relative;">
-        <div style="height:30px;background:#E8390E;border-radius:4px;width:\${pct}%;min-width:4px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;box-sizing:border-box;">
-          <span style="color:#fff;font-size:12px;font-weight:700;white-space:nowrap;">\${pct >= 15 ? d.total : ''}</span>
-        </div>
-        \${pct < 15 ? \`<span style="position:absolute;left:calc(\${pct}% + 6px);top:50%;transform:translateY(-50%);color:#C4BBB8;font-size:12px;font-weight:700;">\${d.total}</span>\` : ''}
-        <div style="font-size:8px;color:#4A4440;margin-top:2px;">\${shortPlanta} · \${shortArea}</div>
-      </div>
-    </div>\`;
+    const numFuera = pct < 15 ? '<span style="position:absolute;left:calc('+pct+'% + 6px);top:50%;transform:translateY(-50%);color:#C4BBB8;font-size:12px;font-weight:700;">'+d.total+'</span>' : '';
+    return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">' +
+      '<div style="min-width:130px;max-width:130px;text-align:right;font-size:11px;color:#C4BBB8;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+shortName+'</div>' +
+      '<div style="flex:1;position:relative;">' +
+        '<div style="height:30px;background:#E8390E;border-radius:4px;width:'+pct+'%;min-width:4px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;box-sizing:border-box;">' +
+          '<span style="color:#fff;font-size:12px;font-weight:700;white-space:nowrap;">'+(pct >= 15 ? d.total : '')+'</span>' +
+        '</div>' +
+        numFuera +
+        '<div style="font-size:8px;color:#4A4440;margin-top:2px;">'+shortPlanta+' · '+shortArea+'</div>' +
+      '</div>' +
+    '</div>';
   }).join('');
 
   // Tabla detalle por día — mostrar solo días con actividad
