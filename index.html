@@ -3838,7 +3838,8 @@ async function loadGraficaTecnicos() {
   const maxTotal = Math.max(...tecnicos.map(t => t[1].total), 1);
 
   // SVG de barras horizontales por técnico
-  const barH = 30, gap = 6, labelW = 150, chartW = 300;
+  const barH = 30, gap = 6, labelW = 150, chartW = 260, numW = 40;
+  const totalW = labelW + chartW + numW;
   const totalH = tecnicos.length * (barH + gap + 4);
 
   const bars = tecnicos.map(([nombre, d], i) => {
@@ -3846,17 +3847,14 @@ async function loadGraficaTecnicos() {
     const y = i * (barH + gap + 4);
     const topPlanta = Object.entries(d.plantas).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—';
     const topArea   = Object.entries(d.areas).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—';
-    const shortName = nombre.length > 20 ? nombre.substring(0,19)+'…' : nombre;
-    const shortPlanta = topPlanta.length > 20 ? topPlanta.substring(0,19)+'…' : topPlanta;
-    const shortArea   = topArea.length > 20 ? topArea.substring(0,19)+'…' : topArea;
-    // Número siempre visible — dentro si barra es ancha, fuera si es angosta
-    const numX = w > 30 ? labelW + w - 5 : labelW + w + 5;
-    const numAnchor = w > 30 ? 'end' : 'start';
-    const numColor  = w > 30 ? '#fff' : '#8A7F7A';
+    const shortName   = nombre.length > 20 ? nombre.substring(0,19)+'…' : nombre;
+    const shortPlanta = topPlanta.length > 22 ? topPlanta.substring(0,21)+'…' : topPlanta;
+    const shortArea   = topArea.length > 22 ? topArea.substring(0,21)+'…' : topArea;
+    // Número siempre a la derecha de la barra, fuera del rect — nunca se corta
     return `
       <text x="${labelW-8}" y="${y+barH/2+5}" text-anchor="end" fill="#C4BBB8" font-size="11" font-weight="500">${shortName}</text>
       <rect x="${labelW}" y="${y}" width="${w}" height="${barH}" fill="#E8390E" rx="4"/>
-      <text x="${numX}" y="${y+barH/2+5}" text-anchor="${numAnchor}" fill="${numColor}" font-size="11" font-weight="700">${d.total}</text>
+      <text x="${labelW+w+6}" y="${y+barH/2+5}" text-anchor="start" fill="#C4BBB8" font-size="12" font-weight="700">${d.total}</text>
       <text x="${labelW}" y="${y+barH+10}" fill="#4A4440" font-size="8">${shortPlanta} · ${shortArea}</text>
     `;
   }).join('');
@@ -3883,7 +3881,7 @@ async function loadGraficaTecnicos() {
 
   cont.innerHTML = `
     <div style="overflow-x:auto;margin-bottom:20px;">
-      <svg width="100%" viewBox="0 0 ${labelW+chartW+60} ${totalH}" xmlns="http://www.w3.org/2000/svg" style="min-width:420px;display:block;">
+      <svg width="100%" viewBox="0 0 ${totalW} ${totalH}" xmlns="http://www.w3.org/2000/svg" style="min-width:420px;display:block;">
         ${bars}
       </svg>
     </div>
