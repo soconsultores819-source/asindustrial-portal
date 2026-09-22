@@ -3838,29 +3838,24 @@ async function loadGraficaTecnicos() {
   const maxTotal = Math.max(...tecnicos.map(t => t[1].total), 1);
 
   // SVG de barras horizontales por técnico
-  const barH = 32, gap = 6, labelW = 150, chartW = 260;
-  const totalW = labelW + chartW;
-  const totalH = tecnicos.length * (barH + gap + 4);
-
-  const bars = tecnicos.map(([nombre, d], i) => {
-    const w = Math.max(4, Math.round((d.total / maxTotal) * chartW));
-    const y = i * (barH + gap + 4);
+  // Barras con HTML puro — se adaptan al ancho disponible sin escalar
+  const barsHTML = tecnicos.map(([nombre, d]) => {
+    const pct = Math.max(1, Math.round((d.total / maxTotal) * 100));
     const topPlanta = Object.entries(d.plantas).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—';
     const topArea   = Object.entries(d.areas).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—';
-    const shortName   = nombre.length > 20 ? nombre.substring(0,19)+'…' : nombre;
-    const shortPlanta = topPlanta.length > 22 ? topPlanta.substring(0,21)+'…' : topPlanta;
-    const shortArea   = topArea.length > 22 ? topArea.substring(0,21)+'…' : topArea;
-    // Número SIEMPRE dentro de la barra — blanco si barra es ancha, afuera en gris si es muy angosta
-    const numDentro = w >= 40;
-    const numX      = numDentro ? labelW + w - 6 : labelW + w + 5;
-    const numAnchor = numDentro ? 'end' : 'start';
-    const numFill   = numDentro ? '#ffffff' : '#C4BBB8';
-    return `
-      <text x="${labelW-8}" y="${y+barH/2+5}" text-anchor="end" fill="#C4BBB8" font-size="11" font-weight="500">${shortName}</text>
-      <rect x="${labelW}" y="${y}" width="${w}" height="${barH}" fill="#E8390E" rx="4"/>
-      <text x="${numX}" y="${y+barH/2+5}" text-anchor="${numAnchor}" fill="${numFill}" font-size="12" font-weight="700">${d.total}</text>
-      <text x="${labelW}" y="${y+barH+10}" fill="#4A4440" font-size="8">${shortPlanta} · ${shortArea}</text>
-    `;
+    const shortName   = nombre.length > 22 ? nombre.substring(0,21)+'…' : nombre;
+    const shortPlanta = topPlanta.length > 30 ? topPlanta.substring(0,29)+'…' : topPlanta;
+    const shortArea   = topArea.length > 30 ? topArea.substring(0,29)+'…' : topArea;
+    return \`<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <div style="min-width:130px;max-width:130px;text-align:right;font-size:11px;color:#C4BBB8;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">\${shortName}</div>
+      <div style="flex:1;position:relative;">
+        <div style="height:30px;background:#E8390E;border-radius:4px;width:\${pct}%;min-width:4px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;box-sizing:border-box;">
+          <span style="color:#fff;font-size:12px;font-weight:700;white-space:nowrap;">\${pct >= 15 ? d.total : ''}</span>
+        </div>
+        \${pct < 15 ? \`<span style="position:absolute;left:calc(\${pct}% + 6px);top:50%;transform:translateY(-50%);color:#C4BBB8;font-size:12px;font-weight:700;">\${d.total}</span>\` : ''}
+        <div style="font-size:8px;color:#4A4440;margin-top:2px;">\${shortPlanta} · \${shortArea}</div>
+      </div>
+    </div>\`;
   }).join('');
 
   // Tabla detalle por día — mostrar solo días con actividad
@@ -3885,10 +3880,8 @@ async function loadGraficaTecnicos() {
 
   cont.innerHTML = `
     <div style="width:100%;">
-      <div style="overflow-x:auto;margin-bottom:20px;">
-        <svg width="100%" viewBox="0 0 ${totalW} ${totalH}" xmlns="http://www.w3.org/2000/svg" style="min-width:420px;display:block;">
-          ${bars}
-        </svg>
+      <div style="margin-bottom:20px;">
+        ${barsHTML}
       </div>
       <div style="font-size:10px;font-weight:600;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);">📅 Desglose por día</div>
       <div style="overflow-x:auto;border-radius:var(--rs);">
