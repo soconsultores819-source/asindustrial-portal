@@ -2434,24 +2434,29 @@ async function loadDashboard() {
       grafPlanta.innerHTML = '<div style="color:var(--mist);font-size:13px;text-align:center;padding:40px 0;">Sin datos de plantas este mes</div>';
     } else {
       const maxP = Math.max(...plantaCounts, 1);
-      const barW = Math.max(28, Math.floor(260/plantaLabels.length)-6);
-      const chartH = 140, labelH = 50, topPad = 20;
-      const totalW = plantaLabels.length*(barW+8);
+      const barW = 32;
+      const chartH = 140, labelH = 90, topPad = 24;
+      const totalW = Math.max(plantaLabels.length*(barW+12), 260);
       let svgBars = plantaLabels.map((label, i) => {
         const h = Math.round((plantaCounts[i]/maxP)*chartH);
-        const x = i*(barW+8);
+        const x = i*(barW+12);
         const y = topPad + (chartH - h);
-        const shortLabel = label.length>10 ? label.substring(0,10)+'…' : label;
+        const shortLabel = label.length>14 ? label.substring(0,13)+'…' : label;
+        // Etiqueta vertical rotada
+        const lx = x + barW/2;
+        const ly = topPad + chartH + 8;
         return `
           <rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="#E8390E" rx="3"/>
-          <text x="${x+barW/2}" y="${Math.max(topPad-4, y-4)}" text-anchor="middle" fill="#C4BBB8" font-size="11">${plantaCounts[i]}</text>
-          <text x="${x+barW/2}" y="${topPad+chartH+16}" text-anchor="middle" fill="#8A7F7A" font-size="10">${shortLabel || 'Sin nombre'}</text>
+          <text x="${x+barW/2}" y="${Math.max(topPad-6, y-5)}" text-anchor="middle" fill="#C4BBB8" font-size="11" font-weight="700">${plantaCounts[i]}</text>
+          <text transform="rotate(-45, ${lx}, ${ly})" x="${lx}" y="${ly}" text-anchor="end" fill="#8A7F7A" font-size="9">${shortLabel || 'Sin nombre'}</text>
         `;
       }).join('');
       grafPlanta.innerHTML = `
-        <svg width="100%" viewBox="0 0 ${Math.max(totalW,260)} ${topPad+chartH+labelH}" xmlns="http://www.w3.org/2000/svg">
-          ${svgBars}
-        </svg>`;
+        <div style="overflow-x:auto;">
+          <svg width="100%" viewBox="0 0 ${totalW} ${topPad+chartH+labelH}" xmlns="http://www.w3.org/2000/svg" style="min-width:${totalW}px;">
+            ${svgBars}
+          </svg>
+        </div>`;
     }
   }
 
@@ -3833,48 +3838,63 @@ async function loadGraficaTecnicos() {
   const maxTotal = Math.max(...tecnicos.map(t => t[1].total), 1);
 
   // SVG de barras horizontales por técnico
-  const barH = 32, gap = 8, labelW = 140, chartW = 320;
-  const totalH = tecnicos.length * (barH + gap);
+  const barH = 30, gap = 6, labelW = 150, chartW = 300;
+  const totalH = tecnicos.length * (barH + gap + 4);
 
   const bars = tecnicos.map(([nombre, d], i) => {
-    const w = Math.round((d.total / maxTotal) * chartW);
-    const y = i * (barH + gap);
+    const w = Math.max(4, Math.round((d.total / maxTotal) * chartW));
+    const y = i * (barH + gap + 4);
     const topPlanta = Object.entries(d.plantas).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—';
     const topArea   = Object.entries(d.areas).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—';
-    const shortName = nombre.length > 18 ? nombre.substring(0,17)+'…' : nombre;
+    const shortName = nombre.length > 20 ? nombre.substring(0,19)+'…' : nombre;
+    const shortPlanta = topPlanta.length > 20 ? topPlanta.substring(0,19)+'…' : topPlanta;
+    const shortArea   = topArea.length > 20 ? topArea.substring(0,19)+'…' : topArea;
+    // Número siempre visible — dentro si barra es ancha, fuera si es angosta
+    const numX = w > 30 ? labelW + w - 5 : labelW + w + 5;
+    const numAnchor = w > 30 ? 'end' : 'start';
+    const numColor  = w > 30 ? '#fff' : '#8A7F7A';
     return `
-      <text x="${labelW-6}" y="${y+barH/2+5}" text-anchor="end" fill="#C4BBB8" font-size="11">${shortName}</text>
+      <text x="${labelW-8}" y="${y+barH/2+5}" text-anchor="end" fill="#C4BBB8" font-size="11" font-weight="500">${shortName}</text>
       <rect x="${labelW}" y="${y}" width="${w}" height="${barH}" fill="#E8390E" rx="4"/>
-      <text x="${labelW+w+5}" y="${y+barH/2+5}" fill="#8A7F7A" font-size="11">${d.total}</text>
-      <text x="${labelW}" y="${y+barH+gap-1}" fill="#5A5050" font-size="9">${topPlanta} · ${topArea}</text>
+      <text x="${numX}" y="${y+barH/2+5}" text-anchor="${numAnchor}" fill="${numColor}" font-size="11" font-weight="700">${d.total}</text>
+      <text x="${labelW}" y="${y+barH+10}" fill="#4A4440" font-size="8">${shortPlanta} · ${shortArea}</text>
     `;
   }).join('');
 
-  // Tabla detalle por día
+  // Tabla detalle por día — mostrar solo días con actividad
   const diasUnicos = [...new Set(data.map(r=>r.fecha_inspeccion))].sort();
-  const headerDias = diasUnicos.map(d => `<th style="min-width:52px;font-size:9px;">${d.slice(5)}</th>`).join('');
+  const headerDias = diasUnicos.map(d => {
+    const parts = d.split('-');
+    return `<th style="min-width:38px;font-size:9px;text-align:center;padding:5px 3px;">${parts[2]}/${parts[1]}</th>`;
+  }).join('');
+
   const filasTec = tecnicos.map(([nombre, d]) => {
     const celdas = diasUnicos.map(dia => {
       const cnt = d.dias[dia] || 0;
-      return `<td style="text-align:center;font-size:11px;${cnt>0?'color:var(--fire-l);font-weight:700;':''}">${cnt||'—'}</td>`;
+      const bg = cnt > 0 ? 'background:rgba(232,57,14,.12);' : '';
+      return `<td style="text-align:center;font-size:11px;padding:5px 3px;${bg}${cnt>0?'color:var(--fire-l);font-weight:700;':'color:var(--smoke);'}">${cnt||'—'}</td>`;
     }).join('');
-    return `<tr><td style="font-size:11px;font-weight:500;white-space:nowrap;padding:6px 8px;">${nombre}</td>${celdas}<td style="text-align:center;font-size:11px;font-weight:700;color:var(--fire);">${d.total}</td></tr>`;
+    return `<tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+      <td style="font-size:11px;font-weight:500;white-space:nowrap;padding:6px 10px;min-width:120px;">${nombre}</td>
+      ${celdas}
+      <td style="text-align:center;font-size:12px;font-weight:800;color:var(--fire);padding:5px 8px;">${d.total}</td>
+    </tr>`;
   }).join('');
 
   cont.innerHTML = `
-    <div style="overflow-x:auto;">
-      <svg width="100%" viewBox="0 0 ${labelW+chartW+60} ${totalH+10}" xmlns="http://www.w3.org/2000/svg" style="min-width:300px;">
+    <div style="overflow-x:auto;margin-bottom:20px;">
+      <svg width="100%" viewBox="0 0 ${labelW+chartW+60} ${totalH}" xmlns="http://www.w3.org/2000/svg" style="min-width:420px;display:block;">
         ${bars}
       </svg>
     </div>
-    <div style="margin-top:16px;font-size:11px;color:var(--mist);margin-bottom:8px;">Desglose por día</div>
-    <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:11px;">
+    <div style="font-size:10px;font-weight:600;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">Desglose por día</div>
+    <div style="overflow-x:auto;border-radius:var(--rs);overflow:hidden;">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;background:var(--coal);">
         <thead>
-          <tr style="background:var(--coal);">
-            <th style="text-align:left;padding:6px 8px;font-size:10px;">Técnico</th>
+          <tr style="background:rgba(0,0,0,.3);">
+            <th style="text-align:left;padding:6px 10px;font-size:10px;color:var(--fog);">Técnico</th>
             ${headerDias}
-            <th style="font-size:10px;">Total</th>
+            <th style="font-size:10px;color:var(--fog);padding:5px 8px;">Total</th>
           </tr>
         </thead>
         <tbody>${filasTec}</tbody>
