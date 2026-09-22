@@ -3838,7 +3838,7 @@ async function loadGraficaTecnicos() {
   const maxTotal = Math.max(...tecnicos.map(t => t[1].total), 1);
 
   // SVG de barras horizontales por técnico
-  const barH = 30, gap = 6, labelW = 150, chartW = 260, numW = 40;
+  const barH = 30, gap = 6, labelW = 150, chartW = 220, numW = 60;
   const totalW = labelW + chartW + numW;
   const totalH = tecnicos.length * (barH + gap + 4);
 
