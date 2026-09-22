@@ -3799,16 +3799,16 @@ async function loadGraficaTecnicos() {
 
   cont.innerHTML = '<div class="spinner" style="width:24px;height:24px;border-width:2px;"></div>';
 
-  // Obtener inspecciones del rango con técnico, área y planta
+  // Obtener inspecciones del rango — solo columnas que existen en tabla maestra
   const { data, error } = await db.from('inspecciones')
-    .select('tecnico_nombre, fecha_inspeccion, area, equipo_id, equipos(plantas(nombre))')
+    .select('tecnico_nombre, tecnico_id, fecha_inspeccion, estado, equipo_id, equipos(area, plantas(nombre))')
     .gte('fecha_inspeccion', inicio)
     .lte('fecha_inspeccion', fin)
     .order('fecha_inspeccion');
 
   if (error) {
     console.error('Error graficaTecnicos:', error);
-    cont.innerHTML = '<span style="color:var(--mist);font-size:13px;">Error al cargar datos</span>';
+    cont.innerHTML = '<span style="color:var(--mist);font-size:13px;">Error: ' + error.message + '</span>';
     return;
   }
   if (!data?.length) {
@@ -3828,8 +3828,8 @@ async function loadGraficaTecnicos() {
     // Por planta
     const planta = r.equipos?.plantas?.nombre || 'Sin planta asignada';
     porTecnico[tec].plantas[planta] = (porTecnico[tec].plantas[planta]||0) + 1;
-    // Por área
-    const area = r.area || 'Sin área';
+    // Por área (viene del equipo relacionado)
+    const area = r.equipos?.area || 'Sin área';
     porTecnico[tec].areas[area] = (porTecnico[tec].areas[area]||0) + 1;
   });
 
