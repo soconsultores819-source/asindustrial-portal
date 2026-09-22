@@ -3801,12 +3801,17 @@ async function loadGraficaTecnicos() {
 
   // Obtener inspecciones del rango con técnico, área y planta
   const { data, error } = await db.from('inspecciones')
-    .select('tecnico_nombre, fecha_inspeccion, area, equipos(planta_id, plantas(nombre))')
+    .select('tecnico_nombre, fecha_inspeccion, area, equipo_id, equipos(plantas(nombre))')
     .gte('fecha_inspeccion', inicio)
     .lte('fecha_inspeccion', fin)
     .order('fecha_inspeccion');
 
-  if (error || !data?.length) {
+  if (error) {
+    console.error('Error graficaTecnicos:', error);
+    cont.innerHTML = '<span style="color:var(--mist);font-size:13px;">Error al cargar datos</span>';
+    return;
+  }
+  if (!data?.length) {
     cont.innerHTML = '<span style="color:var(--mist);font-size:13px;">Sin inspecciones en ese período</span>';
     return;
   }
@@ -3821,7 +3826,7 @@ async function loadGraficaTecnicos() {
     const dia = r.fecha_inspeccion;
     porTecnico[tec].dias[dia] = (porTecnico[tec].dias[dia]||0) + 1;
     // Por planta
-    const planta = r.equipos?.plantas?.nombre || 'Sin planta';
+    const planta = r.equipos?.plantas?.nombre || 'Sin planta asignada';
     porTecnico[tec].plantas[planta] = (porTecnico[tec].plantas[planta]||0) + 1;
     // Por área
     const area = r.area || 'Sin área';
