@@ -3838,8 +3838,8 @@ async function loadGraficaTecnicos() {
   const maxTotal = Math.max(...tecnicos.map(t => t[1].total), 1);
 
   // SVG de barras horizontales por técnico
-  const barH = 30, gap = 6, labelW = 150, chartW = 220, numW = 60;
-  const totalW = labelW + chartW + numW;
+  const barH = 32, gap = 6, labelW = 150, chartW = 260;
+  const totalW = labelW + chartW;
   const totalH = tecnicos.length * (barH + gap + 4);
 
   const bars = tecnicos.map(([nombre, d], i) => {
@@ -3850,11 +3850,15 @@ async function loadGraficaTecnicos() {
     const shortName   = nombre.length > 20 ? nombre.substring(0,19)+'…' : nombre;
     const shortPlanta = topPlanta.length > 22 ? topPlanta.substring(0,21)+'…' : topPlanta;
     const shortArea   = topArea.length > 22 ? topArea.substring(0,21)+'…' : topArea;
-    // Número siempre a la derecha de la barra, fuera del rect — nunca se corta
+    // Número SIEMPRE dentro de la barra — blanco si barra es ancha, afuera en gris si es muy angosta
+    const numDentro = w >= 40;
+    const numX      = numDentro ? labelW + w - 6 : labelW + w + 5;
+    const numAnchor = numDentro ? 'end' : 'start';
+    const numFill   = numDentro ? '#ffffff' : '#C4BBB8';
     return `
       <text x="${labelW-8}" y="${y+barH/2+5}" text-anchor="end" fill="#C4BBB8" font-size="11" font-weight="500">${shortName}</text>
       <rect x="${labelW}" y="${y}" width="${w}" height="${barH}" fill="#E8390E" rx="4"/>
-      <text x="${labelW+w+6}" y="${y+barH/2+5}" text-anchor="start" fill="#C4BBB8" font-size="12" font-weight="700">${d.total}</text>
+      <text x="${numX}" y="${y+barH/2+5}" text-anchor="${numAnchor}" fill="${numFill}" font-size="12" font-weight="700">${d.total}</text>
       <text x="${labelW}" y="${y+barH+10}" fill="#4A4440" font-size="8">${shortPlanta} · ${shortArea}</text>
     `;
   }).join('');
@@ -3863,19 +3867,19 @@ async function loadGraficaTecnicos() {
   const diasUnicos = [...new Set(data.map(r=>r.fecha_inspeccion))].sort();
   const headerDias = diasUnicos.map(d => {
     const parts = d.split('-');
-    return `<th style="min-width:38px;font-size:9px;text-align:center;padding:5px 3px;">${parts[2]}/${parts[1]}</th>`;
+    return `<th style="min-width:44px;font-size:10px;text-align:center;padding:7px 8px;color:var(--fog);font-weight:600;">${parts[2]}/${parts[1]}</th>`;
   }).join('');
 
   const filasTec = tecnicos.map(([nombre, d]) => {
     const celdas = diasUnicos.map(dia => {
       const cnt = d.dias[dia] || 0;
-      const bg = cnt > 0 ? 'background:rgba(232,57,14,.12);' : '';
-      return `<td style="text-align:center;font-size:11px;padding:5px 3px;${bg}${cnt>0?'color:var(--fire-l);font-weight:700;':'color:var(--smoke);'}">${cnt||'—'}</td>`;
+      const bg = cnt > 0 ? 'background:rgba(232,57,14,.15);' : '';
+      return `<td style="text-align:center;font-size:11px;padding:6px 8px;min-width:44px;${bg}${cnt>0?'color:var(--fire-l);font-weight:700;':'color:#3A3530;'}">${cnt||'—'}</td>`;
     }).join('');
     return `<tr style="border-bottom:1px solid rgba(255,255,255,.04);">
-      <td style="font-size:11px;font-weight:500;white-space:nowrap;padding:6px 10px;min-width:120px;">${nombre}</td>
+      <td style="font-size:11px;font-weight:500;white-space:nowrap;padding:7px 12px;position:sticky;left:0;background:var(--coal);z-index:1;">${nombre}</td>
       ${celdas}
-      <td style="text-align:center;font-size:12px;font-weight:800;color:var(--fire);padding:5px 8px;">${d.total}</td>
+      <td style="text-align:center;font-size:12px;font-weight:800;color:var(--fire);padding:6px 10px;position:sticky;right:0;background:var(--coal);z-index:1;">${d.total}</td>
     </tr>`;
   }).join('');
 
@@ -3886,14 +3890,14 @@ async function loadGraficaTecnicos() {
           ${bars}
         </svg>
       </div>
-      <div style="font-size:10px;font-weight:600;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;padding-top:4px;border-top:1px solid rgba(255,255,255,.06);">📅 Desglose por día</div>
-      <div style="overflow-x:auto;border-radius:var(--rs);overflow:hidden;">
-        <table style="width:100%;border-collapse:collapse;font-size:11px;background:var(--coal);">
+      <div style="font-size:10px;font-weight:600;color:var(--mist);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);">📅 Desglose por día</div>
+      <div style="overflow-x:auto;border-radius:var(--rs);">
+        <table style="border-collapse:collapse;font-size:11px;background:var(--coal);min-width:max-content;">
           <thead>
             <tr style="background:rgba(0,0,0,.3);">
-              <th style="text-align:left;padding:6px 10px;font-size:10px;color:var(--fog);white-space:nowrap;">Técnico</th>
+              <th style="text-align:left;padding:7px 12px;font-size:10px;color:var(--fog);white-space:nowrap;position:sticky;left:0;background:rgba(26,22,20,.95);z-index:1;">Técnico</th>
               ${headerDias}
-              <th style="font-size:10px;color:var(--fog);padding:5px 8px;white-space:nowrap;">Total</th>
+              <th style="font-size:10px;color:var(--fire-l);padding:7px 10px;white-space:nowrap;position:sticky;right:0;background:rgba(26,22,20,.95);">Total</th>
             </tr>
           </thead>
           <tbody>${filasTec}</tbody>
