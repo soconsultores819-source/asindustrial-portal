@@ -116,6 +116,13 @@ tbody td{padding:11px 15px;font-size:13px;}
 .ic-l{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--mist);margin-bottom:4px;}
 .ic-v{font-size:14px;font-weight:500;}
 .sec-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:12px;}
+.sec-collapse{cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);margin-bottom:4px;transition:background .2s;}
+.sec-collapse:hover{background:rgba(255,255,255,.05);}
+.sec-collapse .sec-title{margin:0;}
+.sec-collapse .chevron{font-size:12px;color:var(--mist);transition:transform .3s;}
+.sec-collapse.open .chevron{transform:rotate(180deg);}
+.sec-body{display:none;padding-top:12px;}
+.sec-body.open{display:block;}
 .chk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:8px;margin-bottom:22px;}
 .chk{background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--rs);padding:10px 13px;display:flex;align-items:center;gap:8px;font-size:13px;}
 .chk-i{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;}
@@ -491,6 +498,22 @@ tbody td{padding:11px 15px;font-size:13px;}
       <div class="pg-sub" id="dashSub" style="font-size:13px;">Bienvenido</div>
     </div>
 
+    <!-- TARJETA: Inspecciones por técnico -->
+    <div style="background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);padding:20px;margin-top:16px;width:100%;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+        <div class="sec-title" style="margin:0;">👷 Inspecciones por técnico</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input type="date" id="tecFechaInicio" class="fi" style="padding:7px 10px;font-size:12px;width:auto;">
+          <span style="color:var(--mist);font-size:12px;">a</span>
+          <input type="date" id="tecFechaFin" class="fi" style="padding:7px 10px;font-size:12px;width:auto;">
+          <button class="btn-s fire" onclick="loadGraficaTecnicos()" style="padding:7px 14px;font-size:12px;">🔍 Buscar</button>
+        </div>
+      </div>
+      <div id="graficaTecnicos" style="min-height:60px;display:flex;align-items:center;justify-content:center;">
+        <span style="color:var(--mist);font-size:13px;">Selecciona un rango de fechas y presiona Buscar</span>
+      </div>
+    </div>
+
   </div>
     <!-- EQUIPOS -->
   <div id="pEquipos" style="display:none;flex:1;">
@@ -811,9 +834,13 @@ tbody td{padding:11px 15px;font-size:13px;}
       </div>
 
       <!-- SECCIÓN CLIENTES -->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-        <div class="sec-title" style="margin:0">Clientes</div>
-        <button class="btn-s fire" onclick="toggleAddCliente()">+ Nuevo cliente</button>
+      <div class="sec-collapse open" onclick="toggleSection('secClientes',this)">
+        <div class="sec-title">👥 Clientes</div>
+        <span class="chevron">▼</span>
+      </div>
+      <div id="secClientes" class="sec-body open">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+        <button class="btn-s fire" onclick="event.stopPropagation();toggleAddCliente()">+ Nuevo cliente</button>
       </div>
       <div id="addClienteForm" style="display:none;background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:22px;margin-bottom:16px;">
         <div class="sec-title" style="margin-bottom:14px;">Nuevo cliente</div>
@@ -855,7 +882,14 @@ tbody td{padding:11px 15px;font-size:13px;}
         </div>
       </div>
 
+      </div><!-- /secClientes -->
+
       <!-- SECCIÓN EQUIPOS -->
+      <div class="sec-collapse open" onclick="toggleSection('secEquipos',this)" style="margin-top:8px;">
+        <div class="sec-title">🔧 Equipos</div>
+        <span class="chevron">▼</span>
+      </div>
+      <div id="secEquipos" class="sec-body open">
       <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
         <button class="btn-s fire" onclick="toggleAddForm()">+ Nuevo equipo</button>
         <button class="btn-s" onclick="loadAdminTable()">↺ Actualizar</button>
@@ -926,11 +960,17 @@ tbody td{padding:11px 15px;font-size:13px;}
         <tbody id="tbAdmin"></tbody>
       </table></div>
 
+      </div><!-- /secEquipos -->
+
       <!-- Gestión de Plantas -->
-      <div style="margin-top:28px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-          <div class="sec-title" style="margin:0">Plantas por cliente</div>
-          <button class="btn-s fire" onclick="toggleAddPlanta()">+ Nueva planta</button>
+      <div class="sec-collapse open" onclick="toggleSection('secPlantas',this)" style="margin-top:8px;">
+        <div class="sec-title">🏭 Plantas</div>
+        <span class="chevron">▼</span>
+      </div>
+      <div id="secPlantas" class="sec-body open">
+      <div style="margin-top:0;">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+          <button class="btn-s fire" onclick="event.stopPropagation();toggleAddPlanta()">+ Nueva planta</button>
         </div>
         <div id="addPlantaForm" style="display:none;background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:20px;margin-bottom:16px;">
           <div class="fgrid">
@@ -952,11 +992,17 @@ tbody td{padding:11px 15px;font-size:13px;}
         </table></div>
       </div>
 
+      </div><!-- /secPlantas -->
+
       <!-- USUARIOS -->
-      <div style="margin-top:28px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-          <div class="sec-title" style="margin:0">Usuarios del sistema</div>
-          <button class="btn-s fire" onclick="toggleAddUsuario()">+ Nuevo usuario</button>
+      <div class="sec-collapse open" onclick="toggleSection('secUsuarios',this)" style="margin-top:8px;">
+        <div class="sec-title">👤 Usuarios del sistema</div>
+        <span class="chevron">▼</span>
+      </div>
+      <div id="secUsuarios" class="sec-body open">
+      <div style="margin-top:0;">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+          <button class="btn-s fire" onclick="event.stopPropagation();toggleAddUsuario()">+ Nuevo usuario</button>
         </div>
         <div id="addUsuarioForm" style="display:none;background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:22px;margin-bottom:16px;">
           <div class="sec-title" style="margin-bottom:14px;">Nuevo usuario</div>
@@ -994,11 +1040,17 @@ tbody td{padding:11px 15px;font-size:13px;}
         </table></div>
       </div>
 
+      </div><!-- /secUsuarios -->
+
       <!-- ÁREAS Y SUBÁREAS -->
-      <div style="margin-top:28px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-          <div class="sec-title" style="margin:0">📍 Áreas y Subáreas</div>
-          <button class="btn-s fire" onclick="toggleAddArea()">+ Nueva área</button>
+      <div class="sec-collapse open" onclick="toggleSection('secAreas',this)" style="margin-top:8px;">
+        <div class="sec-title">📍 Áreas y Subáreas</div>
+        <span class="chevron">▼</span>
+      </div>
+      <div id="secAreas" class="sec-body open">
+      <div style="margin-top:0;">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+          <button class="btn-s fire" onclick="event.stopPropagation();toggleAddArea()">+ Nueva área</button>
         </div>
         <div id="addAreaForm" style="display:none;background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:22px;margin-bottom:16px;">
           <div class="sec-title" style="margin-bottom:14px;">Nueva área</div>
@@ -3737,6 +3789,106 @@ function showToast(msg, isErr) {
   t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3500);
 }
 document.getElementById('inPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+
+async function loadGraficaTecnicos() {
+  const inicio = document.getElementById('tecFechaInicio').value;
+  const fin    = document.getElementById('tecFechaFin').value;
+  const cont   = document.getElementById('graficaTecnicos');
+  if (!inicio || !fin) { showToast('⚠ Selecciona rango de fechas', true); return; }
+  if (inicio > fin) { showToast('⚠ La fecha inicio debe ser menor a la fin', true); return; }
+
+  cont.innerHTML = '<div class="spinner" style="width:24px;height:24px;border-width:2px;"></div>';
+
+  // Obtener inspecciones del rango con técnico, área y planta
+  const { data, error } = await db.from('inspecciones')
+    .select('tecnico_nombre, fecha_inspeccion, area, equipos(planta_id, plantas(nombre))')
+    .gte('fecha_inspeccion', inicio)
+    .lte('fecha_inspeccion', fin)
+    .order('fecha_inspeccion');
+
+  if (error || !data?.length) {
+    cont.innerHTML = '<span style="color:var(--mist);font-size:13px;">Sin inspecciones en ese período</span>';
+    return;
+  }
+
+  // Agrupar por técnico
+  const porTecnico = {};
+  data.forEach(r => {
+    const tec = r.tecnico_nombre || 'Sin nombre';
+    if (!porTecnico[tec]) porTecnico[tec] = { total: 0, dias: {}, plantas: {}, areas: {} };
+    porTecnico[tec].total++;
+    // Por día
+    const dia = r.fecha_inspeccion;
+    porTecnico[tec].dias[dia] = (porTecnico[tec].dias[dia]||0) + 1;
+    // Por planta
+    const planta = r.equipos?.plantas?.nombre || 'Sin planta';
+    porTecnico[tec].plantas[planta] = (porTecnico[tec].plantas[planta]||0) + 1;
+    // Por área
+    const area = r.area || 'Sin área';
+    porTecnico[tec].areas[area] = (porTecnico[tec].areas[area]||0) + 1;
+  });
+
+  const tecnicos = Object.entries(porTecnico).sort((a,b) => b[1].total - a[1].total);
+  const maxTotal = Math.max(...tecnicos.map(t => t[1].total), 1);
+
+  // SVG de barras horizontales por técnico
+  const barH = 32, gap = 8, labelW = 140, chartW = 320;
+  const totalH = tecnicos.length * (barH + gap);
+
+  const bars = tecnicos.map(([nombre, d], i) => {
+    const w = Math.round((d.total / maxTotal) * chartW);
+    const y = i * (barH + gap);
+    const topPlanta = Object.entries(d.plantas).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—';
+    const topArea   = Object.entries(d.areas).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—';
+    const shortName = nombre.length > 18 ? nombre.substring(0,17)+'…' : nombre;
+    return `
+      <text x="${labelW-6}" y="${y+barH/2+5}" text-anchor="end" fill="#C4BBB8" font-size="11">${shortName}</text>
+      <rect x="${labelW}" y="${y}" width="${w}" height="${barH}" fill="#E8390E" rx="4"/>
+      <text x="${labelW+w+5}" y="${y+barH/2+5}" fill="#8A7F7A" font-size="11">${d.total}</text>
+      <text x="${labelW}" y="${y+barH+gap-1}" fill="#5A5050" font-size="9">${topPlanta} · ${topArea}</text>
+    `;
+  }).join('');
+
+  // Tabla detalle por día
+  const diasUnicos = [...new Set(data.map(r=>r.fecha_inspeccion))].sort();
+  const headerDias = diasUnicos.map(d => `<th style="min-width:52px;font-size:9px;">${d.slice(5)}</th>`).join('');
+  const filasTec = tecnicos.map(([nombre, d]) => {
+    const celdas = diasUnicos.map(dia => {
+      const cnt = d.dias[dia] || 0;
+      return `<td style="text-align:center;font-size:11px;${cnt>0?'color:var(--fire-l);font-weight:700;':''}">${cnt||'—'}</td>`;
+    }).join('');
+    return `<tr><td style="font-size:11px;font-weight:500;white-space:nowrap;padding:6px 8px;">${nombre}</td>${celdas}<td style="text-align:center;font-size:11px;font-weight:700;color:var(--fire);">${d.total}</td></tr>`;
+  }).join('');
+
+  cont.innerHTML = `
+    <div style="overflow-x:auto;">
+      <svg width="100%" viewBox="0 0 ${labelW+chartW+60} ${totalH+10}" xmlns="http://www.w3.org/2000/svg" style="min-width:300px;">
+        ${bars}
+      </svg>
+    </div>
+    <div style="margin-top:16px;font-size:11px;color:var(--mist);margin-bottom:8px;">Desglose por día</div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;">
+        <thead>
+          <tr style="background:var(--coal);">
+            <th style="text-align:left;padding:6px 8px;font-size:10px;">Técnico</th>
+            ${headerDias}
+            <th style="font-size:10px;">Total</th>
+          </tr>
+        </thead>
+        <tbody>${filasTec}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function toggleSection(id, header) {
+  const body = document.getElementById(id);
+  if (!body) return;
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  header.classList.toggle('open', !isOpen);
+}
 
 function toggleMenu() {
   const m = document.getElementById('mobileMenu');
