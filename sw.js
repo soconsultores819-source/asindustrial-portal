@@ -1,4 +1,4 @@
-const CACHE_NAME = 'asindustrial-v1';
+const CACHE_NAME = 'asindustrial-v2';
 const ASSETS = [
   '/',
   '/index.html',
@@ -35,21 +35,34 @@ self.addEventListener('fetch', e => {
   // No interceptar peticiones a Supabase (deben ir a internet siempre)
   if (e.request.url.includes('supabase.co')) return;
 
+  // Nunca guardar en caché las llamadas al servidor (/api)
+  if (new URL(e.request.url).pathname.startsWith('/api/')) return;
+
+  // Páginas (index.html): primero internet para tener siempre la última versión;
+  // si no hay señal, se usa la copia guardada.
+  if (e.request.mode === 'navigate' || e.request.destination === 'document') {
+    e.respondWith(
+      fetch(e.request).then(response => {
+        if (response && response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put('/index.html', clone));
+        }
+        return response;
+      }).catch(() => caches.match('/index.html').then(r => r || caches.match('/')))
+    );
+    return;
+  }
+
+  // Resto (fuentes, librerías, logo): primero caché, luego internet
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
       return fetch(e.request).then(response => {
-        // Guardar en caché si es una respuesta válida
         if (response && response.status === 200 && response.type === 'basic') {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
         }
         return response;
-      }).catch(() => {
-        // Sin internet y sin caché: mostrar página offline
-        if (e.request.destination === 'document') {
-          return caches.match('/index.html');
-        }
       });
     })
   );
