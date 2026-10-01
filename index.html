@@ -1515,6 +1515,41 @@ async function loadAreasFromDB() {
   }
 }
 
+// ── API USUARIOS (servidor Vercel) ──
+async function apiUsuarios(method, body) {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) throw new Error('Sesión expirada, vuelve a iniciar sesión');
+  const r = await fetch('/api/usuarios', {
+    method,
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+    body: JSON.stringify(body || {}),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || ('Error ' + r.status));
+  return j;
+}
+
+// ── COMPRESIÓN DE FOTOS ──
+// Reduce fotos de celular (~5 MB) a ~200-300 KB antes de subirlas o guardarlas offline.
+async function comprimirFoto(blob, maxLado = 1600, calidad = 0.75) {
+  try {
+    if (!blob || !String(blob.type || '').startsWith('image/')) return blob;
+    const url = URL.createObjectURL(blob);
+    const img = await new Promise((ok, fail) => { const i = new Image(); i.onload = () => ok(i); i.onerror = fail; i.src = url; });
+    URL.revokeObjectURL(url);
+    const esc = Math.min(1, maxLado / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.round(img.naturalWidth * esc), hh = Math.round(img.naturalHeight * esc);
+    const c = document.createElement('canvas'); c.width = w; c.height = hh;
+    c.getContext('2d').drawImage(img, 0, 0, w, hh);
+    const out = await new Promise(ok => c.toBlob(ok, 'image/jpeg', calidad));
+    return (out && out.size < blob.size) ? out : blob;
+  } catch (e) {
+    console.warn('No se pudo comprimir la foto, se sube original:', e);
+    return blob;
+  }
+}
+const nombreJpg = n => String(n || 'foto').replace(/\.[^.]+$/, '') + '.jpg';
+
 // ── USUARIOS ──
 function toggleAddUsuario() {
   const f = document.getElementById('addUsuarioForm');
@@ -1555,39 +1590,21 @@ async function saveUsuario() {
   if (!pass || pass.length < 6) { errEl.textContent='⚠ La contraseña debe tener mínimo 6 caracteres'; errEl.style.display='block'; return; }
 
   loader(true);
-  // Crear usuario en Supabase Auth vía API admin
-  const resp = await fetch(`${SUPA_URL}/auth/v1/admin/users`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': SUPA_KEY,
-      'Authorization': 'Bearer ' + SUPA_KEY,
-    },
-    body: JSON.stringify({
-      email: correo,
-      password: pass,
-      email_confirm: true,
-    }),
-  });
-  const authData = await resp.json();
-  if (!resp.ok || !authData.id) {
+  // Crear usuario vía /api/usuarios (la service_role key vive solo en Vercel)
+  try {
+    await apiUsuarios('POST', {
+      nombre, email: correo, password: pass, rol,
+      cliente_id: clienteId,
+      planta_id: rol === 'cliente' ? plantaId : null,
+      numero_empleado: numEmp || null,
+    });
+  } catch (e) {
     loader(false);
-    errEl.textContent = '❌ Error al crear usuario: ' + (authData.msg || authData.message || 'Error desconocido');
+    errEl.textContent = '❌ Error al crear usuario: ' + e.message;
     errEl.style.display = 'block';
     return;
   }
-  const userId = authData.id;
-  // Crear perfil en tabla perfiles
-  const { error } = await db.from('perfiles').insert({
-    id: userId,
-    nombre,
-    rol,
-    cliente_id: clienteId,
-    planta_id:  rol === 'cliente' ? plantaId : null,
-    numero_empleado: numEmp || null,
-  });
   loader(false);
-  if (error) { errEl.textContent='❌ Error perfil: '+error.message; errEl.style.display='block'; return; }
   showToast('✅ Usuario creado correctamente');
   toggleAddUsuario();
   loadUsuariosAdmin();
@@ -1638,15 +1655,13 @@ async function eliminarUsuario() {
   const nombre = document.getElementById('eUserNombre').value;
   if (!confirm(`¿Eliminar al usuario "${nombre}"?\n\nEsta acción no se puede deshacer.`)) return;
   loader(true);
-  // Eliminar perfil de la tabla perfiles
-  await db.from('perfiles').delete().eq('id', id);
-  // Intentar eliminar de Auth (requiere permisos de admin en Supabase)
   try {
-    await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${id}`, {
-      method: 'DELETE',
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
-    });
-  } catch(e) { console.warn('No se pudo eliminar de Auth:', e); }
+    await apiUsuarios('DELETE', { id });
+  } catch (e) {
+    loader(false);
+    showToast('❌ ' + e.message, true);
+    return;
+  }
   loader(false);
   document.getElementById('modalEditUser').style.display = 'none';
   showToast('✅ Usuario eliminado correctamente');
@@ -1671,7 +1686,16 @@ async function saveEditUsuario() {
   if (!nombre) { showToast('⚠ El nombre es obligatorio', true); return; }
   if (!email)  { showToast('⚠ El usuario (correo) es obligatorio', true); return; }
 
+  if (pass && pass.length < 6) { showToast('⚠ La contraseña debe tener mínimo 6 caracteres', true); return; }
+
   loader(true);
+
+  // Actualizar correo (y contraseña si se capturó) en Supabase Auth
+  try {
+    await apiUsuarios('PATCH', { id, email, password: pass || undefined });
+  } catch (e) {
+    loader(false); showToast('❌ ' + e.message, true); return;
+  }
 
   // Actualizar perfil
   const { error } = await db.from('perfiles').update({
@@ -1688,13 +1712,7 @@ async function saveEditUsuario() {
   loader(false);
   document.getElementById('modalEditUser').style.display = 'none';
 
-  if (pass) {
-    showToast('✅ Perfil actualizado. Para cambiar contraseña ve a Supabase → Authentication → Users');
-    navigator.clipboard?.writeText(`UPDATE auth.users SET encrypted_password = crypt('${pass}', gen_salt('bf')) WHERE id = '${id}';`);
-    setTimeout(()=>showToast('📋 SQL copiado al portapapeles para cambiar contraseña'), 2000);
-  } else {
-    showToast('✅ Usuario actualizado correctamente');
-  }
+  showToast(pass ? '✅ Usuario y contraseña actualizados' : '✅ Usuario actualizado correctamente');
   loadUsuariosAdmin();
 }
 
@@ -3169,11 +3187,11 @@ async function saveInspection() {
     const filesGaleria = document.getElementById('fFilesGaleria')?.files||[];
     const files = [...filesCamera, ...filesGaleria];
     if (files && files.length > 0) {
-      const fotoPromises = Array.from(files).map(file => new Promise(resolve => {
+      const fotoPromises = Array.from(files).map(file => comprimirFoto(file).then(small => new Promise(resolve => {
         const reader = new FileReader();
-        reader.onload = e => resolve({ name: file.name, data: e.target.result });
-        reader.readAsDataURL(file);
-      }));
+        reader.onload = e => resolve({ name: nombreJpg(file.name), data: e.target.result });
+        reader.readAsDataURL(small);
+      })));
       offlineInsp.fotos = await Promise.all(fotoPromises);
     }
     const pending = JSON.parse(localStorage.getItem('pendingInspections') || '[]');
@@ -3221,9 +3239,10 @@ async function saveInspection() {
     };
     const tipoCol = tipoColMap[tipo] || 'inspeccion_id';
     for (const file of files) {
-      const ext = file.name.split('.').pop();
+      const small = await comprimirFoto(file);
+      const ext = small.type === 'image/jpeg' ? 'jpg' : file.name.split('.').pop();
       const path = `${currentEquipo.id}/${inspData.id}/${Date.now()}_${Math.random().toString(36).substr(2,6)}.${ext}`;
-      const { error: upErr } = await db.storage.from('inspecciones').upload(path, file, { upsert: true });
+      const { error: upErr } = await db.storage.from('inspecciones').upload(path, small, { upsert: true, contentType: small.type || file.type });
       if (!upErr) {
         await db.from('fotos_inspeccion').insert({
           inspeccion_id: inspData.id,
@@ -3593,8 +3612,9 @@ async function saveEquipoAyudante() {
   const fotoInput = document.getElementById('aFoto');
   if (fotoInput?.files?.length > 0) {
     const file = fotoInput.files[0];
-    const path = `equipos/${equipo.id}/${file.name}`;
-    await db.storage.from('inspecciones').upload(path, file, { upsert: true });
+    const small = await comprimirFoto(file);
+    const path = `equipos/${equipo.id}/${small.type === 'image/jpeg' ? nombreJpg(file.name) : file.name}`;
+    await db.storage.from('inspecciones').upload(path, small, { upsert: true, contentType: small.type || file.type });
   }
 
   loader(false);
@@ -3663,9 +3683,9 @@ async function syncPendingInspections() {
         for (const foto of insp.fotos) {
           try {
             const res = await fetch(foto.data);
-            const blob = await res.blob();
-            const path = `${inspData.id}/${foto.name}`;
-            await db.storage.from('inspecciones').upload(path, blob, { upsert: true });
+            const blob = await comprimirFoto(await res.blob());
+            const path = `${inspData.id}/${blob.type === 'image/jpeg' ? nombreJpg(foto.name) : foto.name}`;
+            await db.storage.from('inspecciones').upload(path, blob, { upsert: true, contentType: blob.type });
             await db.from('fotos_inspeccion').insert({ inspeccion_id: inspData.id, url: path, tipo_tabla: insp.tabla });
           } catch(e) { console.warn('Error subiendo foto:', e); }
         }
