@@ -145,6 +145,7 @@ tbody td{padding:11px 15px;font-size:13px;}
 .tb-traje{background:rgba(127,119,221,.15);color:#AFA9EC;border:1px solid rgba(127,119,221,.2);}
 .tb-camilla{background:rgba(45,158,107,.15);color:#5DCAA5;border:1px solid rgba(45,158,107,.2);}
 .tb-regadera{background:rgba(196,138,16,.15);color:#EF9F27;border:1px solid rgba(196,138,16,.2);}
+.tb-valvula{background:rgba(196,43,43,.15);color:#F07B7B;border:1px solid rgba(196,43,43,.25);}
 
 /* FORMULARIO */
 .form-wrap{max-width:700px;margin:0 auto;padding:26px 22px;}
@@ -524,6 +525,7 @@ tbody td{padding:11px 15px;font-size:13px;}
           <option value="traje_bomberos">🧥 Trajes Bomberos</option>
           <option value="camilla">🛏 Camillas</option>
           <option value="regadera">🚿 Regaderas/Lavaojos</option>
+          <option value="valvula_seccionadora">🔴 Válvulas seccionadoras</option>
         </select>
         <input class="fi" id="filtroSerie" placeholder="🔍 Buscar por No. Serie..." style="width:220px;padding:9px 14px;" oninput="filtrarEquiposTabla()"/>
       </div>
@@ -618,6 +620,7 @@ tbody td{padding:11px 15px;font-size:13px;}
               <option value="traje_bomberos">🧥 Trajes Bomberos</option>
               <option value="camilla">🛏 Camillas</option>
               <option value="regadera">🚿 Regaderas/Lavaojos</option>
+              <option value="valvula_seccionadora">🔴 Válvulas seccionadoras</option>
             </select>
           </div>
           <div class="ff">
@@ -716,6 +719,7 @@ tbody td{padding:11px 15px;font-size:13px;}
             <option value="traje_bomberos">🧥 Traje de bomberos</option>
             <option value="camilla">🛏 Camilla</option>
             <option value="regadera">🚿 Regadera de emergencia</option>
+            <option value="valvula_seccionadora">🔴 Válvula seccionadora</option>
           </select>
         </div>
 
@@ -927,6 +931,7 @@ tbody td{padding:11px 15px;font-size:13px;}
               <option value="traje_bomberos">🧥 Traje Bomberos</option>
               <option value="camilla">🛏 Camilla</option>
               <option value="regadera">🚿 Regadera / Lavaojos</option>
+              <option value="valvula_seccionadora">🔴 Válvula seccionadora</option>
             </select>
           </div>
           <div class="ff"><label class="fl">No. de serie *</label><input class="fi" id="aSerie" placeholder="EXT-001"/></div>
@@ -1125,7 +1130,48 @@ const TIPOS = {
   traje_bomberos: { label: 'Traje Bomberos',     icon: '🧥', badge: 'tb-traje',     tabla: 'insp_traje_bomberos' },
   camilla:        { label: 'Camilla',            icon: '🛏', badge: 'tb-camilla',   tabla: 'insp_camillas' },
   regadera:       { label: 'Regadera/Lavaojos',  icon: '🚿', badge: 'tb-regadera',  tabla: 'insp_regaderas' },
+  valvula_seccionadora: { label: 'Válvula seccionadora', icon: '🔴', badge: 'tb-valvula', tabla: 'insp_valvulas' },
 };
+
+
+// ── VÁLVULA SECCIONADORA (formato AS Industrial · NFPA 25 cap. 13) ──
+const VALVULA_VISUAL = [
+  ['v_accesible',       'Válvula accesible y libre de obstrucciones'],
+  ['v_posicion_normal', 'Válvula en posición NORMAL / ABIERTA'],
+  ['v_volante',         'Volante en buenas condiciones'],
+  ['v_vastago',         'Vástago sin daño, corrosión excesiva o deformación'],
+  ['v_cuerpo_fugas',    'Cuerpo de válvula sin fugas'],
+  ['v_bridas',          'Bridas y tornillería en condiciones adecuadas'],
+  ['v_corrosion',       'No presenta corrosión que afecte su operación'],
+  ['v_identificacion',  'Identificación / señalización de la válvula visible'],
+  ['v_cadena',          'Cadena / seguro de posición instalado, cuando aplique'],
+  ['v_supervision',     'Supervisión de posición instalada y en condición normal, cuando aplique'],
+];
+const VALVULA_OPERACION = [
+  ['op_recorrido',      'Operar la válvula a través de su recorrido', ['SATISFACTORIO','NO SATISFACTORIO']],
+  ['op_movimiento',     'Movimiento libre y uniforme',                 ['SI','NO']],
+  ['op_abierta',        'Se alcanza posición completamente abierta',   ['SI','NO']],
+  ['op_cerrada',        'Se alcanza posición completamente cerrada',   ['SI','NO']],
+  ['op_regresa_normal', 'Regresa a posición NORMAL',                   ['SI','NO']],
+  ['op_indicador',      'Se verifica indicador de posición',           ['SI','NO','N/A']],
+  ['op_supervision',    'Se verifica dispositivo de supervisión',      ['SI','NO','N/A']],
+];
+const VALVULA_MANTTO = [
+  ['m_limpieza',        'Limpieza exterior'],
+  ['m_corrosion',       'Eliminación de corrosión superficial'],
+  ['m_lub_vastago',     'Lubricación del vástago OS&Y'],
+  ['m_lub_mecanismo',   'Lubricación de mecanismo, según fabricante'],
+  ['m_tornilleria',     'Revisión de tornillería'],
+  ['m_prensaestopa',    'Revisión de prensaestopa / empaque'],
+  ['m_volante',         'Revisión de volante'],
+  ['m_fugas',           'Revisión de fugas'],
+  ['m_supervision',     'Revisión / ajuste del dispositivo de supervisión'],
+];
+const VALVULA_CAMPOS = [
+  ...VALVULA_VISUAL.map(([k,l])=>[k,l]),
+  ...VALVULA_OPERACION.map(([k,l])=>[k,l]),
+  ...VALVULA_MANTTO.map(([k,l])=>[k,'Mantto: '+l]),
+];
 
 // ── AUTH ──
 async function init() {
@@ -1904,10 +1950,11 @@ async function buscarReporte() {
   loader(true);
   reporteData = [];
 
-  const tablas = tipo ? [tipo] : ['extintor','hidrante','traje_bomberos','camilla','regadera'];
+  const tablas = tipo ? [tipo] : ['extintor','hidrante','traje_bomberos','camilla','regadera','valvula_seccionadora'];
   const tablaMap = {
     extintor:'insp_extintores', hidrante:'insp_hidrantes',
-    traje_bomberos:'insp_traje_bomberos', camilla:'insp_camillas', regadera:'insp_regaderas'
+    traje_bomberos:'insp_traje_bomberos', camilla:'insp_camillas', regadera:'insp_regaderas',
+    valvula_seccionadora:'insp_valvulas'
   };
 
   for (const t of tablas) {
@@ -2043,6 +2090,7 @@ function exportarExcel() {
       'Araña': r.arana||'',
       'Pulpo': r.pulpo||'',
     };
+    if (t==='valvula_seccionadora') return Object.fromEntries(VALVULA_CAMPOS.map(([k,l]) => [l, r[k]||'']));
     if (t==='regadera') return {
       'Tipo Regadera': r.tipo_regadera||'',
       'Nivel Agua': r.nivel_agua||'',
@@ -2435,9 +2483,9 @@ async function loadDashboard() {
   }
   const tot = equipos?.length||0;
   document.getElementById('sTot').textContent = tot;
-  const tipos = ['extintor','hidrante','traje_bomberos','camilla','regadera'];
+  const tipos = ['extintor','hidrante','traje_bomberos','camilla','regadera','valvula_seccionadora'];
   // Actualizar contadores por tipo solo si los elementos existen
-  const ids = {'extintor':'sCntExt','hidrante':'sCntHid','traje_bomberos':'sCntTrj','camilla':'sCntCam','regadera':'sCntReg'};
+  const ids = {'extintor':'sCntExt','hidrante':'sCntHid','traje_bomberos':'sCntTrj','camilla':'sCntCam','regadera':'sCntReg','valvula_seccionadora':'sCntVal'};
   tipos.forEach(t => {
     const cnt = equipos?.filter(e=>e.tipo===t).length||0;
     const el = document.getElementById(ids[t]);
@@ -2452,7 +2500,7 @@ async function loadDashboard() {
   const meses  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   document.getElementById('dashMesLabel').textContent = `— ${meses[now.getMonth()]} ${y}`;
 
-  const tablaMap = {extintor:'insp_extintores',hidrante:'insp_hidrantes',traje_bomberos:'insp_traje_bomberos',camilla:'insp_camillas',regadera:'insp_regaderas'};
+  const tablaMap = {extintor:'insp_extintores',hidrante:'insp_hidrantes',traje_bomberos:'insp_traje_bomberos',camilla:'insp_camillas',regadera:'insp_regaderas',valvula_seccionadora:'insp_valvulas'};
 
   // Leer inspecciones del mes desde tabla maestra
   let inspMes = null;
@@ -2490,7 +2538,7 @@ async function loadDashboard() {
   document.getElementById('iCrit').textContent = iCrit;
 
   // ── GRÁFICA 1: Barras horizontales por tipo (SVG) ──
-  const tipoLabels2 = ['🧯 Extintores','🚒 Hidrantes','🧥 Trajes','🛏 Camillas','🚿 Regaderas'];
+  const tipoLabels2 = ['🧯 Extintores','🚒 Hidrantes','🧥 Trajes','🛏 Camillas','🚿 Regaderas','🔴 Válvulas'];
   const tipoOk2=[], tipoWarn2=[], tipoCrit2=[];
   for (const t of tipos) {
     const rows = inspMes?.filter(i=>i.tipo_equipo===t)||[];
@@ -2502,7 +2550,7 @@ async function loadDashboard() {
   const grafTipo = document.getElementById('graficaTipo');
   if (grafTipo) {
     const barH = 28, gap = 10, labelW = 110, chartW = 280;
-    const totalH = (barH + gap) * 5;
+    const totalH = (barH + gap) * tipoLabels2.length;
     let svgRows = tipoLabels2.map((label, i) => {
       const tot = tipoOk2[i]+tipoWarn2[i]+tipoCrit2[i];
       const wOk   = Math.round((tipoOk2[i]/maxTipo)*chartW);
@@ -2828,9 +2876,12 @@ function buildChecklist(tipo, last) {
     ['Tapón rociadores',last.tapon_rociadores],['Agua en buen estado',last.agua_buen_estado],
     ['Delimitado',last.delimitado],
   ];
+  else if(tipo==='valvula_seccionadora') checks = VALVULA_CAMPOS
+    .filter(([k]) => !k.startsWith('m_') || last[k]==='SI')   // mantenimiento: solo lo realizado
+    .map(([k,l]) => [l, last[k]]);
   return checks.map(([l,v])=>{
     const na = !v||v==='N/A'||v==='na';
-    const ng = !na&&(v==='NO'||v==='no'||v==='DAÑADO'||v==='dañado'||v==='DAÑADA'||v==='dañada'||v.startsWith('NO'));
+    const ng = !na&&(v==='NC'||v==='NO'||v==='no'||v==='DAÑADO'||v==='dañado'||v==='DAÑADA'||v==='dañada'||v.startsWith('NO'));
     const cls = na?'ci-na':ng?'ci-ng':'ci-ok';
     const ico = na?'—':ng?'✗':'✓';
     return `<div class="chk"><div class="chk-i ${cls}">${ico}</div>${l}: <strong style="margin-left:4px">${v||'—'}</strong></div>`;
@@ -3010,6 +3061,17 @@ function renderForm() {
       ${radio('Pulpo','pul',['OK','NO ESTÁ','N/A'])}
       ${radio('Área delimitada','del',['SI','NO','N/A'])}
     </div></div>`;
+  } else if (e.tipo === 'valvula_seccionadora') {
+    campos = `
+    <div class="fsec"><div class="fsec-title">Inspección visual <span style="font-weight:400;font-size:11px;color:var(--mist)">C = Cumple · NC = No cumple</span></div><div class="fgrid">
+      ${VALVULA_VISUAL.map(([k,l])=>radio(l,k,['C','NC','N/A'])).join('')}
+    </div></div>
+    <div class="fsec"><div class="fsec-title">Prueba de operación</div><div class="fgrid">
+      ${VALVULA_OPERACION.map(([k,l,o])=>radio(l,k,o)).join('')}
+    </div></div>
+    <div class="fsec"><div class="fsec-title">Mantenimiento realizado</div><div class="fgrid">
+      ${VALVULA_MANTTO.map(([k,l])=>radio(l,k,['SI','NO','N/A'])).join('')}
+    </div></div>`;
   } else if (e.tipo === 'regadera') {
     campos = `
     <div class="fsec"><div class="fsec-title">Datos de la regadera</div><div class="fgrid">
@@ -3172,6 +3234,10 @@ async function saveInspection() {
     agua_buen_estado:getR('agua'), delimitado:getR('del'),
   });
 
+  else if (tipo==='valvula_seccionadora') {
+    VALVULA_CAMPOS.forEach(([k]) => { payload[k] = getR(k); });
+  }
+
   // ── MODO OFFLINE: si no hay internet, guardar localmente ──
   if (!navigator.onLine) {
     const offlineInsp = {
@@ -3267,7 +3333,8 @@ async function deleteInspection(inspId, tipo) {
   if (!confirm('¿Eliminar esta inspección? Esta acción no se puede deshacer.')) return;
   const tablaMap = {
     extintor:'insp_extintores', hidrante:'insp_hidrantes',
-    traje_bomberos:'insp_traje_bomberos', camilla:'insp_camillas', regadera:'insp_regaderas'
+    traje_bomberos:'insp_traje_bomberos', camilla:'insp_camillas', regadera:'insp_regaderas',
+    valvula_seccionadora:'insp_valvulas'
   };
   const tabla = tablaMap[tipo] || null;
   loader(true);
@@ -3361,7 +3428,7 @@ async function eliminarEquipo(equipoId, noSerie) {
 Esto eliminará también todas sus inspecciones. Esta acción no se puede deshacer.`)) return;
   loader(true);
   // Eliminar inspecciones relacionadas primero
-  const tablas = ['insp_extintores','insp_hidrantes','insp_traje_bomberos','insp_camillas','insp_regaderas'];
+  const tablas = ['insp_extintores','insp_hidrantes','insp_traje_bomberos','insp_camillas','insp_regaderas','insp_valvulas'];
   for (const tabla of tablas) {
     await db.from(tabla).delete().eq('equipo_id', equipoId);
   }
