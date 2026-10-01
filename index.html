@@ -629,6 +629,18 @@ tbody td{padding:11px 15px;font-size:13px;}
               <option value="critico">✗ Crítico</option>
             </select>
           </div>
+          <div class="ff">
+            <label class="fl">Área</label>
+            <select class="fs" id="rArea" onchange="loadReporteSubAreas()">
+              <option value="">— Todas las áreas —</option>
+            </select>
+          </div>
+          <div class="ff">
+            <label class="fl">Sub área</label>
+            <select class="fs" id="rSubArea">
+              <option value="">— Todas las sub áreas —</option>
+            </select>
+          </div>
           <div class="ff" style="justify-content:flex-end;padding-top:20px;">
             <button class="btn-s fire" onclick="buscarReporte()" style="padding:11px 20px;font-size:14px;">🔍 Buscar</button>
           </div>
@@ -1002,13 +1014,15 @@ tbody td{padding:11px 15px;font-size:13px;}
         </div>
         <div id="addUsuarioForm" style="display:none;background:var(--ash);border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:22px;margin-bottom:16px;">
           <div class="sec-title" style="margin-bottom:14px;">Nuevo usuario</div>
-          <div style="background:rgba(55,138,221,.1);border:1px solid rgba(55,138,221,.2);border-radius:var(--rs);padding:12px;margin-bottom:16px;font-size:12px;color:#85B7EB;">
-            ℹ️ Primero crea el usuario en <strong>Supabase → Authentication → Users → Add user</strong>, luego pega el UUID aquí para asignarle su perfil y accesos.
-          </div>
           <div class="fgrid">
-            <div class="ff full"><label class="fl">UUID del usuario (de Supabase Auth)</label><input class="fi" id="uUID" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"/></div>
-            <div class="ff"><label class="fl">Nombre completo</label><input class="fi" id="uNombre" placeholder="Juan Pérez"/></div>
-            <div class="ff"><label class="fl">Rol</label>
+            <div class="ff"><label class="fl">Nombre completo *</label><input class="fi" id="uNombre" placeholder="Juan Pérez"/></div>
+            <div class="ff"><label class="fl">Correo electrónico *</label><input class="fi" id="uCorreo" type="email" placeholder="usuario@empresa.com"/></div>
+            <div class="ff"><label class="fl">Contraseña *</label>
+              <input class="fi" id="uPass" type="password" placeholder="Mínimo 6 caracteres"/>
+              <small style="color:var(--mist);font-size:10px;margin-top:3px;">El usuario podrá cambiarla después</small>
+            </div>
+            <div class="ff"><label class="fl">No. empleado</label><input class="fi" id="uNumEmp" placeholder="EMP-001 (opcional)"/></div>
+            <div class="ff"><label class="fl">Rol *</label>
               <select class="fs" id="uRol" onchange="toggleUsuarioCliente()">
                 <option value="tecnico">🔧 Técnico</option>
                 <option value="supervisor">👁️ Supervisor</option>
@@ -1020,14 +1034,14 @@ tbody td{padding:11px 15px;font-size:13px;}
             <div class="ff" id="uClienteWrap"><label class="fl">Cliente</label>
               <select class="fs" id="uCliente" onchange="loadPlantasSelect(this.value,'uPlanta')"><option value="">— Sin cliente —</option></select>
             </div>
-            <div class="ff" id="uPlantaWrap"><label class="fl">Planta (solo para rol cliente)</label>
+            <div class="ff" id="uPlantaWrap"><label class="fl">Planta</label>
               <select class="fs" id="uPlanta"><option value="">— Sin planta específica —</option></select>
             </div>
-            <div class="ff"><label class="fl">No. empleado</label><input class="fi" id="uNumEmp" placeholder="EMP-001 (opcional)"/></div>
           </div>
+          <div id="uError" style="display:none;background:var(--ng-bg);color:var(--ng);border-radius:var(--rs);padding:10px;font-size:12px;margin-top:10px;"></div>
           <div style="display:flex;gap:10px;margin-top:14px;">
             <button class="btn-cancel" style="flex:0;padding:10px 18px;" onclick="toggleAddUsuario()">Cancelar</button>
-            <button class="btn-save" style="flex:0;padding:10px 20px;" onclick="saveUsuario()">Guardar perfil</button>
+            <button class="btn-save" style="flex:0;padding:10px 20px;" onclick="saveUsuario()">✅ Crear usuario</button>
           </div>
         </div>
         <div class="tbl-wrap"><table>
@@ -1526,17 +1540,44 @@ function toggleUsuarioCliente() {
 }
 
 async function saveUsuario() {
-  const userId   = document.getElementById('uUID').value.trim();
-  const nombre   = document.getElementById('uNombre').value.trim();
-  const rol      = document.getElementById('uRol').value;
-  const clienteId= document.getElementById('uCliente').value || null;
-  const plantaId = document.getElementById('uPlanta').value || null;
-  const numEmp   = document.getElementById('uNumEmp').value.trim();
+  const nombre    = document.getElementById('uNombre').value.trim();
+  const correo    = document.getElementById('uCorreo').value.trim();
+  const pass      = document.getElementById('uPass').value.trim();
+  const rol       = document.getElementById('uRol').value;
+  const clienteId = document.getElementById('uCliente').value || null;
+  const plantaId  = document.getElementById('uPlanta').value || null;
+  const numEmp    = document.getElementById('uNumEmp').value.trim();
+  const errEl     = document.getElementById('uError');
+  errEl.style.display = 'none';
 
-  if (!userId || !nombre) { showToast('⚠ UUID y nombre son obligatorios', true); return; }
-  if (!/^[0-9a-f-]{36}$/.test(userId)) { showToast('⚠ El UUID no tiene el formato correcto', true); return; }
+  if (!nombre)  { errEl.textContent='⚠ El nombre es obligatorio'; errEl.style.display='block'; return; }
+  if (!correo)  { errEl.textContent='⚠ El correo es obligatorio'; errEl.style.display='block'; return; }
+  if (!pass || pass.length < 6) { errEl.textContent='⚠ La contraseña debe tener mínimo 6 caracteres'; errEl.style.display='block'; return; }
 
   loader(true);
+  // Crear usuario en Supabase Auth vía API admin
+  const resp = await fetch(`${SUPA_URL}/auth/v1/admin/users`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer ' + SUPA_KEY,
+    },
+    body: JSON.stringify({
+      email: correo,
+      password: pass,
+      email_confirm: true,
+    }),
+  });
+  const authData = await resp.json();
+  if (!resp.ok || !authData.id) {
+    loader(false);
+    errEl.textContent = '❌ Error al crear usuario: ' + (authData.msg || authData.message || 'Error desconocido');
+    errEl.style.display = 'block';
+    return;
+  }
+  const userId = authData.id;
+  // Crear perfil en tabla perfiles
   const { error } = await db.from('perfiles').insert({
     id: userId,
     nombre,
@@ -1546,8 +1587,8 @@ async function saveUsuario() {
     numero_empleado: numEmp || null,
   });
   loader(false);
-  if (error) { showToast('❌ Error: '+error.message, true); return; }
-  showToast('✅ Perfil de usuario guardado correctamente');
+  if (error) { errEl.textContent='❌ Error perfil: '+error.message; errEl.style.display='block'; return; }
+  showToast('✅ Usuario creado correctamente');
   toggleAddUsuario();
   loadUsuariosAdmin();
 }
@@ -1792,18 +1833,55 @@ async function initReportes() {
   const { data } = await db.from('clientes').select('id,nombre').eq('activo',true);
   const sel = document.getElementById('rCliente');
   if (!sel) return;
-  sel.innerHTML = '<option value="">— Todos los clientes —</option>' +
-    (data||[]).map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+
+  // Si es cliente, preseleccionar su cliente y planta
+  const p = currentPerfil;
+  if (p?.rol === 'cliente' && p.cliente_id) {
+    sel.innerHTML = '';
+    const { data: cli } = await db.from('clientes').select('id,nombre').eq('id', p.cliente_id).single();
+    if (cli) sel.innerHTML = `<option value="${cli.id}">${cli.nombre}</option>`;
+    await loadPlantasSelect(p.cliente_id, 'rPlanta');
+    if (p.planta_id) document.getElementById('rPlanta').value = p.planta_id;
+    sel.disabled = true;
+    document.getElementById('rPlanta').disabled = true;
+  } else {
+    sel.innerHTML = '<option value="">— Todos los clientes —</option>' +
+      (data||[]).map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+  }
+
+  // Cargar áreas en el filtro de reportes
+  if (window.AREAS_DATA) {
+    const rArea = document.getElementById('rArea');
+    if (rArea) {
+      rArea.innerHTML = '<option value="">— Todas las áreas —</option>' +
+        Object.keys(window.AREAS_DATA).map(a=>`<option value="${a}">${a}</option>`).join('');
+    }
+  }
+
   const now = new Date();
   document.getElementById('rMes').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
 }
 
+function loadReporteSubAreas() {
+  const area = document.getElementById('rArea')?.value;
+  const sel  = document.getElementById('rSubArea');
+  if (!sel) return;
+  const subs = (window.AREAS_DATA||{})[area] || [];
+  sel.innerHTML = '<option value="">— Todas las sub áreas —</option>' +
+    subs.map(s=>`<option value="${s}">${s}</option>`).join('');
+}
+
 async function buscarReporte() {
-  const clienteId = document.getElementById('rCliente').value;
-  const plantaId  = document.getElementById('rPlanta')?.value || '';
-  const mes       = document.getElementById('rMes').value;
-  const tipo      = document.getElementById('rTipo').value;
+  const clienteId  = document.getElementById('rCliente').value;
+  const plantaId   = document.getElementById('rPlanta')?.value || '';
+  const mes        = document.getElementById('rMes').value;
+  const tipo       = document.getElementById('rTipo').value;
   const estadoFiltro = document.getElementById('rEstado')?.value || '';
+  const areaFiltro   = document.getElementById('rArea')?.value || '';
+  const subAreaFiltro = document.getElementById('rSubArea')?.value || '';
+  // Para rol cliente, forzar su planta
+  const p = currentPerfil;
+  const plantaFiltro = (p?.rol==='cliente' && p.planta_id) ? p.planta_id : plantaId;
 
   loader(true);
   reporteData = [];
@@ -1826,9 +1904,11 @@ async function buscarReporte() {
     const { data } = await q;
     if (data?.length) {
       const filtrado = data.filter(r => {
-        if (clienteId   && r.equipos?.cliente_id !== clienteId) return false;
-        if (plantaId    && r.equipos?.planta_id  !== plantaId)  return false;
-        if (estadoFiltro && r.estado !== estadoFiltro)           return false;
+        if (clienteId    && r.equipos?.cliente_id !== clienteId)   return false;
+        if (plantaFiltro && r.equipos?.planta_id  !== plantaFiltro) return false;
+        if (estadoFiltro && r.estado !== estadoFiltro)              return false;
+        if (areaFiltro   && r.equipos?.area !== areaFiltro)         return false;
+        if (subAreaFiltro && r.sub_area !== subAreaFiltro)          return false;
         return true;
       });
       for (const r of filtrado) {
@@ -2127,8 +2207,14 @@ function showApp() {
 
   // Botón inspeccionar: todos menos cliente
   document.getElementById('btnInspWrap').style.display = esCliente ? 'none' : 'block';
-  document.getElementById('dashSub').textContent =
-    'Bienvenido, ' + p.nombre + ' — ' + new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  let dashMsg = 'Bienvenido, ' + p.nombre + ' — ' + new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  if (p.rol === 'cliente' && p.planta_id) {
+    db.from('plantas').select('nombre').eq('id', p.planta_id).single().then(({data:pl}) => {
+      if (pl) document.getElementById('dashSub').textContent = dashMsg + ' · 🏭 ' + pl.nombre;
+    });
+  } else {
+    document.getElementById('dashSub').textContent = dashMsg;
+  }
 
   // Si venía de un QR pendiente, procesarlo ahora
   const pendingQR = sessionStorage.getItem('pendingQR');
@@ -2316,7 +2402,10 @@ function exportarPDF() {
 async function loadDashboard() {
   let equipos = null;
   if (navigator.onLine) {
-    const { data } = await db.from('equipos').select('id,tipo').eq('activo',true);
+    let qEq = db.from('equipos').select('id,tipo,planta_id').eq('activo',true);
+    const _dp = currentPerfil;
+    if (_dp?.rol === 'cliente' && _dp.planta_id) qEq = qEq.eq('planta_id', _dp.planta_id);
+    const { data } = await qEq;
     equipos = data;
   } else {
     const cached = localStorage.getItem('cachedEquipos');
@@ -2350,11 +2439,16 @@ async function loadDashboard() {
   // Leer inspecciones del mes desde tabla maestra
   let inspMes = null;
   if (navigator.onLine) {
-    const { data } = await db.from('inspecciones')
-      .select('estado, tipo_equipo, equipo_id')
+    let qInsp = db.from('inspecciones')
+      .select('estado, tipo_equipo, equipo_id, equipos(planta_id)')
       .gte('fecha_inspeccion', inicio)
       .lte('fecha_inspeccion', fin);
-    inspMes = data;
+    const { data } = await qInsp;
+    // Filtrar por planta si es cliente
+    const _cp = currentPerfil;
+    inspMes = (_cp?.rol === 'cliente' && _cp.planta_id)
+      ? (data||[]).filter(i => i.equipos?.planta_id === _cp.planta_id)
+      : data;
     if (data) localStorage.setItem('cachedInspMes', JSON.stringify({ data, mes: inicio }));
   } else {
     const cached = localStorage.getItem('cachedInspMes');
@@ -2485,6 +2579,9 @@ async function loadEquipos() {
   if (navigator.onLine) {
     let q = db.from('equipos').select('*,clientes(nombre),plantas(nombre)').eq('activo',true).order('tipo').order('no_serie');
     if (filtro) q = q.eq('tipo', filtro);
+    // Rol cliente: filtrar por su planta
+    const _p = currentPerfil;
+    if (_p?.rol === 'cliente' && _p.planta_id) q = q.eq('planta_id', _p.planta_id);
     const { data } = await q;
     equiposData = data;
     if (!filtro && data?.length) {
