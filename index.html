@@ -1057,6 +1057,54 @@ tbody td{padding:11px 15px;font-size:13px;}
 
       </div><!-- /secUsuarios -->
 
+      <!-- PINS DE EQUIPOS -->
+      <div class="sec-collapse" onclick="toggleSection('secPines',this);if(document.getElementById('secPines').classList.contains('open'))loadPines();" style="margin-top:8px;">
+        <div class="sec-title">🔒 PINs de equipos</div>
+        <span class="chevron">▼</span>
+      </div>
+      <div id="secPines" class="sec-body">
+        <div style="font-size:12px;color:var(--mist);margin-bottom:12px;line-height:1.5;">
+          Consulta y corrige el PIN de verificación de cada equipo. Debe coincidir con el que está impreso en su etiqueta naranja.
+        </div>
+        <div id="pinStats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end;">
+          <div class="ff" style="flex:1;min-width:170px;"><label class="fl">Buscar No. serie</label>
+            <input class="fi" id="pinBuscar" placeholder="Ej. TMEDMEXT-0041" oninput="pinFiltroCambio()" autocomplete="off"/></div>
+          <div class="ff" style="min-width:150px;"><label class="fl">Cliente</label>
+            <select class="fs" id="pinFCliente" onchange="pinFiltroCambio()"><option value="">— Todos los clientes —</option></select></div>
+          <div class="ff" style="min-width:150px;"><label class="fl">Planta</label>
+            <select class="fs" id="pinFPlanta" onchange="pinFiltroCambio()"><option value="">— Todas las plantas —</option></select></div>
+          <div class="ff" style="min-width:150px;"><label class="fl">Área</label>
+            <select class="fs" id="pinFArea" onchange="pinFiltroCambio()"><option value="">— Todas las áreas —</option></select></div>
+          <div class="ff" style="min-width:150px;"><label class="fl">Tipo</label>
+            <select class="fs" id="pinFTipo" onchange="pinFiltroCambio()">
+              <option value="">— Todos los tipos —</option>
+              <option value="extintor">🧯 Extintores</option>
+              <option value="hidrante">🚒 Hidrantes</option>
+              <option value="traje_bomberos">🧥 Trajes Bomberos</option>
+              <option value="camilla">🛏 Camillas</option>
+              <option value="regadera">🚿 Regaderas/Lavaojos</option>
+            </select></div>
+          <div class="ff" style="min-width:160px;"><label class="fl">Estado del PIN</label>
+            <select class="fs" id="pinFEstado" onchange="pinFiltroCambio()">
+              <option value="">— Todos —</option>
+              <option value="sin">Sin PIN</option>
+              <option value="sospechoso">PIN sospechoso</option>
+              <option value="con">Con PIN</option>
+            </select></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+          <button class="btn-s" id="pinBtnMostrar" onclick="pinToggleTodos()">👁 Mostrar todos los PINs</button>
+          <button class="btn-s" onclick="loadPines(true)">↺ Actualizar</button>
+          <button class="btn-s fire" onclick="pinExportar()">📥 Exportar a Excel</button>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>No. Serie</th><th>Tipo</th><th>Cliente / Planta</th><th>Área / Sub área</th><th>PIN</th><th>Acciones</th></tr></thead>
+          <tbody id="tbPines"><tr><td colspan="6" class="empty">Cargando...</td></tr></tbody>
+        </table></div>
+        <div id="pinPaginacion" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--mist);"></div>
+      </div><!-- /secPines -->
+
       <!-- ÁREAS Y SUBÁREAS -->
       <div class="sec-collapse open" onclick="toggleSection('secAreas',this)" style="margin-top:8px;">
         <div class="sec-title">📍 Áreas y Subáreas</div>
@@ -2238,6 +2286,7 @@ async function doReset() {
 async function doLogout() {
   await db.auth.signOut();
   currentUser = null; currentPerfil = null;
+  _pinData = []; _pinVisible.clear(); _pinShowAll = false; _pinEditing = null;
   document.getElementById('vApp').style.display = 'none';
   document.getElementById('vLogin').style.display = 'flex';
   document.getElementById('vLogin').classList.add('active');
@@ -4116,6 +4165,225 @@ async function loadGraficaTecnicos() {
       </div>
     </div>
   `;
+}
+
+// ── PINs DE EQUIPOS (solo admin / supervisor) ──
+let _pinData = [], _pinPage = 1, _pinVisible = new Set(), _pinEditing = null, _pinShowAll = false;
+const PIN_PAGE_SIZE = 25;
+
+function _pinEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function _pinSospechoso(e) {
+  return !!e.pin_verificacion && e.pin_verificacion === String(e.no_serie || '').slice(-4);
+}
+function _pinPermitido() {
+  return ['admin', 'supervisor'].includes(currentPerfil?.rol);
+}
+
+async function loadPines(force) {
+  if (!_pinPermitido()) return;
+  if (_pinData.length && !force) { renderPines(); return; }
+  loader(true);
+  let all = [], from = 0;
+  const step = 1000;
+  while (true) {
+    const { data, error } = await db.from('equipos')
+      .select('id,no_serie,tipo,area,sub_area,pin_verificacion,clientes(nombre),plantas(nombre)')
+      .order('no_serie')
+      .range(from, from + step - 1);
+    if (error) { loader(false); showToast('❌ Error: ' + error.message, true); return; }
+    all = all.concat(data || []);
+    if (!data || data.length < step) break;
+    from += step;
+  }
+  loader(false);
+  _pinData = all;
+  _pinPage = 1;
+  _pinEditing = null;
+  fillPinFilters();
+  renderPines();
+}
+
+function fillPinFilters() {
+  const uniq = arr => [...new Set(arr.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b)));
+  const set = (id, first, vals) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const cur = el.value;
+    el.innerHTML = '<option value="">' + first + '</option>' +
+      vals.map(v => '<option value="' + _pinEsc(v) + '">' + _pinEsc(v) + '</option>').join('');
+    if (vals.includes(cur)) el.value = cur;
+  };
+  set('pinFCliente', '— Todos los clientes —', uniq(_pinData.map(e => e.clientes?.nombre)));
+  set('pinFPlanta', '— Todas las plantas —', uniq(_pinData.map(e => e.plantas?.nombre)));
+  set('pinFArea', '— Todas las áreas —', uniq(_pinData.map(e => e.area)));
+}
+
+function pinFiltered() {
+  const val = id => document.getElementById(id)?.value || '';
+  const q = val('pinBuscar').trim().toUpperCase();
+  const cli = val('pinFCliente'), pla = val('pinFPlanta'), area = val('pinFArea');
+  const tipo = val('pinFTipo'), est = val('pinFEstado');
+  return _pinData.filter(e => {
+    if (q && !String(e.no_serie || '').toUpperCase().includes(q)) return false;
+    if (cli && e.clientes?.nombre !== cli) return false;
+    if (pla && e.plantas?.nombre !== pla) return false;
+    if (area && e.area !== area) return false;
+    if (tipo && e.tipo !== tipo) return false;
+    if (est === 'sin' && e.pin_verificacion) return false;
+    if (est === 'con' && !e.pin_verificacion) return false;
+    if (est === 'sospechoso' && !_pinSospechoso(e)) return false;
+    return true;
+  });
+}
+
+function pinFiltroCambio() {
+  _pinPage = 1;
+  _pinEditing = null;
+  renderPines();
+}
+
+function renderPines() {
+  const tbody = document.getElementById('tbPines');
+  if (!tbody) return;
+  const list = pinFiltered();
+  const total = _pinData.length;
+  const sin = _pinData.filter(e => !e.pin_verificacion).length;
+  const sosp = _pinData.filter(_pinSospechoso).length;
+
+  const card = (label, num, color) =>
+    '<div style="background:var(--ash);border:1px solid rgba(255,255,255,.07);border-radius:var(--rs);padding:8px 14px;min-width:110px;">' +
+    '<div style="font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--mist);">' + label + '</div>' +
+    '<div style="font-family:Syne,sans-serif;font-size:20px;font-weight:800;color:' + color + ';">' + num + '</div></div>';
+  document.getElementById('pinStats').innerHTML =
+    card('Equipos', total, 'var(--fire-l)') +
+    card('Con PIN', total - sin, 'var(--ok)') +
+    card('Sin PIN', sin, 'var(--warn)') +
+    card('PIN sospechoso', sosp, 'var(--ng)');
+
+  const pages = Math.max(1, Math.ceil(list.length / PIN_PAGE_SIZE));
+  if (_pinPage > pages) _pinPage = pages;
+  const slice = list.slice((_pinPage - 1) * PIN_PAGE_SIZE, _pinPage * PIN_PAGE_SIZE);
+
+  if (!slice.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">' + (total ? 'Sin equipos con esos filtros' : 'Sin equipos registrados') + '</td></tr>';
+  } else {
+    tbody.innerHTML = slice.map(e => {
+      const t = TIPOS[e.tipo] || { icon: '🔧', label: e.tipo };
+      const editando = _pinEditing === e.id;
+      let pinCell, acciones;
+      if (editando) {
+        pinCell = '<input id="pinEditInput" class="fi" inputmode="numeric" maxlength="4" placeholder="0000" value="' + _pinEsc(e.pin_verificacion || '') +
+          '" oninput="pinSoloDigitos(this)" onkeydown="pinKey(event,\'' + e.id + '\')" ' +
+          'style="width:100px;padding:6px 8px;text-align:center;letter-spacing:4px;font-weight:700;"/>';
+        acciones = '<button class="btn-s fire" onclick="pinGuardar(\'' + e.id + '\')">💾 Guardar</button> ' +
+                   '<button class="btn-s" onclick="pinCancelar()">✕</button>';
+      } else {
+        const visible = _pinShowAll || _pinVisible.has(e.id);
+        if (!e.pin_verificacion) {
+          pinCell = '<span style="color:var(--warn);font-size:12px;">Sin PIN</span>';
+        } else {
+          const aviso = _pinSospechoso(e) ? ' <span title="Igual a los últimos 4 dígitos del No. de serie" style="color:var(--ng);">⚠</span>' : '';
+          pinCell = '<span style="font-family:monospace;font-size:15px;font-weight:700;letter-spacing:3px;">' +
+            (visible ? _pinEsc(e.pin_verificacion) : '••••') + '</span>' + aviso;
+        }
+        acciones = (e.pin_verificacion
+            ? '<button class="btn-s" title="Mostrar / ocultar PIN" onclick="pinToggleUno(\'' + e.id + '\')">👁</button> '
+            : '') +
+          '<button class="btn-s" onclick="pinEditar(\'' + e.id + '\')">✏️ ' + (e.pin_verificacion ? 'Editar' : 'Asignar') + '</button>';
+      }
+      return '<tr>' +
+        '<td style="font-weight:500">' + _pinEsc(e.no_serie) + '</td>' +
+        '<td>' + t.icon + ' ' + _pinEsc(t.label) + '</td>' +
+        '<td>' + _pinEsc(e.clientes?.nombre || '—') + '<br><span style="font-size:11px;color:var(--mist);">' + _pinEsc(e.plantas?.nombre || '—') + '</span></td>' +
+        '<td>' + _pinEsc(e.area || '—') + '<br><span style="font-size:11px;color:var(--mist);">' + _pinEsc(e.sub_area || '') + '</span></td>' +
+        '<td>' + pinCell + '</td>' +
+        '<td style="white-space:nowrap;">' + acciones + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  document.getElementById('pinPaginacion').innerHTML =
+    '<span>' + list.length + ' equipo' + (list.length !== 1 ? 's' : '') + ' · página ' + _pinPage + ' de ' + pages + '</span>' +
+    '<span style="display:flex;gap:8px;">' +
+      '<button class="btn-s" onclick="pinPagina(-1)"' + (_pinPage <= 1 ? ' disabled style="opacity:.4;cursor:default;"' : '') + '>← Anterior</button>' +
+      '<button class="btn-s" onclick="pinPagina(1)"' + (_pinPage >= pages ? ' disabled style="opacity:.4;cursor:default;"' : '') + '>Siguiente →</button>' +
+    '</span>';
+
+  const btn = document.getElementById('pinBtnMostrar');
+  if (btn) btn.textContent = _pinShowAll ? '🙈 Ocultar todos los PINs' : '👁 Mostrar todos los PINs';
+
+  if (_pinEditing) {
+    const inp = document.getElementById('pinEditInput');
+    if (inp) { inp.focus(); inp.select(); }
+  }
+}
+
+function pinPagina(delta) { _pinPage += delta; _pinEditing = null; renderPines(); }
+function pinToggleTodos() { _pinShowAll = !_pinShowAll; renderPines(); }
+function pinToggleUno(id) {
+  if (_pinVisible.has(id)) _pinVisible.delete(id); else _pinVisible.add(id);
+  renderPines();
+}
+function pinEditar(id) { _pinEditing = id; renderPines(); }
+function pinCancelar() { _pinEditing = null; renderPines(); }
+function pinSoloDigitos(el) { el.value = el.value.replace(/\D/g, '').slice(0, 4); }
+function pinKey(ev, id) {
+  if (ev.key === 'Enter') pinGuardar(id);
+  else if (ev.key === 'Escape') pinCancelar();
+}
+
+async function pinGuardar(id) {
+  if (!_pinPermitido()) { showToast('⚠ Sin permisos para cambiar PINs', true); return; }
+  const eq = _pinData.find(e => e.id === id);
+  if (!eq) return;
+  const nuevo = (document.getElementById('pinEditInput')?.value || '').trim();
+  if (!/^\d{4}$/.test(nuevo)) { showToast('⚠ El PIN debe tener exactamente 4 dígitos', true); return; }
+  if (nuevo === eq.pin_verificacion) { _pinEditing = null; renderPines(); return; }
+  if (nuevo === String(eq.no_serie || '').slice(-4)) {
+    const ok = confirm('El PIN ' + nuevo + ' es igual a los últimos 4 dígitos del No. de serie (' + eq.no_serie + ').\n\n' +
+      'Eso suele indicar que se copió de la etiqueta negra en lugar de la naranja.\n\n¿Guardar de todos modos?');
+    if (!ok) return;
+  }
+  loader(true);
+  const { data, error } = await db.from('equipos').update({ pin_verificacion: nuevo }).eq('id', id).select('id');
+  loader(false);
+  if (error) { showToast('❌ Error: ' + error.message, true); return; }
+  if (!data || !data.length) { showToast('❌ No se pudo guardar (revisa tus permisos)', true); return; }
+  eq.pin_verificacion = nuevo;
+  _pinEditing = null;
+  _pinVisible.add(id);
+  showToast('✅ PIN actualizado: ' + eq.no_serie);
+  renderPines();
+}
+
+function pinExportar() {
+  if (!_pinPermitido()) return;
+  const list = pinFiltered();
+  if (!list.length) { showToast('⚠ No hay datos para exportar', true); return; }
+  const headers = ['No. Serie', 'Tipo', 'Cliente', 'Planta', 'Área', 'Sub área', 'PIN', 'Observación'];
+  const rows = list.map(e => [
+    e.no_serie,
+    TIPOS[e.tipo]?.label || e.tipo,
+    e.clientes?.nombre || '',
+    e.plantas?.nombre || '',
+    e.area || '',
+    e.sub_area || '',
+    e.pin_verificacion ? '="' + e.pin_verificacion + '"' : '',
+    !e.pin_verificacion ? 'Sin PIN' : (_pinSospechoso(e) ? 'PIN igual al final del No. serie' : '')
+  ]);
+  const csv = '\uFEFF' + [headers].concat(rows)
+    .map(r => r.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(','))
+    .join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'AS_Industrial_PINs_' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✅ Lista de PINs descargada');
 }
 
 function toggleSection(id, header) {
