@@ -212,6 +212,34 @@ tbody td{padding:11px 15px;font-size:13px;}
 @media(max-width:560px){
   .dash-kpi{grid-template-columns:1fr!important;}
 }
+
+/* RESPONSIVE EXTRA */
+html,body{max-width:100%;overflow-x:hidden;}
+#pDash,#pDash>*{min-width:0;}
+.dash-kpi>*{min-width:0;}
+.tbl-wrap{max-width:100%;-webkit-overflow-scrolling:touch;}
+.tbl-wrap table{min-width:560px;}
+#graficaTipo,#graficaPlanta,#graficaTecnicos{max-width:100%;overflow-x:auto;}
+#graficaTipo svg,#graficaPlanta svg,#graficaTecnicos svg,#pDash img,#pDash canvas{max-width:100%;height:auto;}
+@media(max-width:768px){
+  #pDash{padding:14px 12px;}
+  .tbl-wrap table{min-width:520px;}
+  thead th,tbody td{padding:9px 10px;}
+  tbody td .btn-s{margin:2px 0;padding:8px 12px;}
+  .btn-s,.btn-out,.fi,.fs,.ft{min-height:40px;}
+  .fi,.fs,.ft{font-size:16px;}
+  #filtroSerie{width:100%!important;}
+  #filtroTipo{width:100%!important;}
+  #tecFechaInicio,#tecFechaFin{flex:1;min-width:130px;}
+  .form-wrap{padding:18px 14px;}
+  .ficha-hero{padding:18px 14px;}
+  .ficha-body{padding:0 14px;}
+  .toast{white-space:normal;width:calc(100% - 28px);text-align:center;}
+}
+@media(min-width:1100px){
+  .main{max-width:1240px;}
+  .dash-kpi{grid-template-columns:repeat(4,1fr)!important;}
+}
 </style>
   <!-- PWA -->
   <link rel="manifest" href="/manifest.json">
@@ -563,6 +591,9 @@ tbody td{padding:11px 15px;font-size:13px;}
       <div class="hist-list" id="fichaHist"></div>
       <div id="btnInspWrap">
         <button class="btn-inspect" onclick="goTab('form')">📋 Registrar inspección</button>
+      </div>
+      <div id="btnEditarEquipoWrap" style="display:none;margin-bottom:10px;">
+        <button class="btn-s" onclick="abrirEditarEquipo(currentEquipo)" style="width:100%;padding:12px;">✏️ Editar este equipo</button>
       </div>
       <div id="btnEliminarEquipoWrap" style="display:none;margin-bottom:10px;">
         <button class="btn-s" onclick="eliminarEquipoDesde('ficha')" style="color:var(--ng);border-color:var(--ng);width:100%;padding:12px;">
@@ -1880,6 +1911,7 @@ async function loadAdminTable() {
       <td>
         <button class="btn-s fire" onclick='verFicha(${JSON.stringify(e)})'>Ver</button>
         <button class="btn-s" onclick="printQR('${e.id}','${e.no_serie}')">QR</button>
+        ${['admin','supervisor'].includes(currentPerfil?.rol) ? `<button class="btn-s" onclick='abrirEditarEquipo(${JSON.stringify(e).replace(/'/g,"&#39;")})'>✏️</button>` : ''}
         ${['admin','supervisor'].includes(currentPerfil?.rol) ? `<button class="btn-s" onclick="eliminarEquipo('${e.id}','${e.no_serie}')" style="color:var(--ng);border-color:var(--ng);">🗑</button>` : ''}
       </td>
     </tr>`;
@@ -2386,7 +2418,7 @@ function goTab(tab) {
     const tb = document.getElementById('t'+p); if(tb) tb.classList.remove('active');
   });
   const T = tab.charAt(0).toUpperCase()+tab.slice(1);
-  const el = document.getElementById('p'+T); if(el) el.style.display='flex';
+  const el = document.getElementById('p'+T); if(el) el.style.display=(T==='Dash'?'block':'flex');
   const tb = document.getElementById('t'+T); if(tb) tb.classList.add('active');
   if(tab==='equipos') loadEquipos();
   if(tab==='admin')   { loadAdminTable(); loadClientesSelect(); loadPlantasAdmin(); loadClientesAdmin(); loadUsuariosAdmin(); loadAreasAdmin(); loadCapacidades();
@@ -2759,6 +2791,8 @@ async function verFicha(equipo) {
   // Mostrar/ocultar botón eliminar según rol
   const btnEliminar = document.getElementById('btnEliminarEquipoWrap');
   if (btnEliminar) btnEliminar.style.display = ['admin','supervisor'].includes(currentPerfil?.rol) ? 'block' : 'none';
+  const btnEditar = document.getElementById('btnEditarEquipoWrap');
+  if (btnEditar) btnEditar.style.display = ['admin','supervisor'].includes(currentPerfil?.rol) ? 'block' : 'none';
   document.getElementById('fichaIco').textContent = t.icon;
   document.getElementById('fichaSerie').textContent = equipo.no_serie + ' · ' + t.label;
   document.getElementById('fichaNombre').textContent = (equipo.subtipo||t.label) + ' — ' + equipo.area;
@@ -3229,7 +3263,8 @@ async function saveInspection() {
     const tipoRegistrado = currentEquipo.agente_extintor || null;
     const capRegistrada  = currentEquipo.capacidad || null;
 
-    if (tipoRegistrado && tipoIngresado && tipoIngresado !== tipoRegistrado) {
+    const _nAg = v => String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+    if (tipoRegistrado && tipoIngresado && _nAg(tipoIngresado) !== _nAg(tipoRegistrado)) {
       const sel = document.getElementById('fTipoExt');
       sel.style.border = '2px solid #E8390E';
       sel.scrollIntoView({behavior:'smooth', block:'center'});
@@ -3497,6 +3532,105 @@ async function eliminarEquipoDesde(desde) {
   if (!document.getElementById('tbEquipos').innerHTML.includes(currentEquipo.id)) {
     goTab('equipos');
   }
+}
+
+
+// ── EDITAR EQUIPO (admin/supervisor) ──
+var _editEquipo = null;
+const AGENTES_LISTA = ['PQS (Polvo Químico Seco)','CO2','Agua','Espuma','Halón','K'];
+function _esc(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+async function abrirEditarEquipo(eq) {
+  if (!['admin','supervisor'].includes(currentPerfil?.rol)) return;
+  if (!eq) return;
+  _editEquipo = eq;
+  if (!Object.keys(window.AREAS_DATA||{}).length) await loadAreasFromDB();
+  if (!window.CAPACIDADES_LIST?.length) await loadCapacidades();
+  const [{data:clis},{data:plantas}] = await Promise.all([
+    db.from('clientes').select('id,nombre').eq('activo',true).order('nombre'),
+    eq.cliente_id ? db.from('plantas').select('id,nombre').eq('cliente_id',eq.cliente_id).eq('activo',true) : Promise.resolve({data:[]})
+  ]);
+  document.getElementById('modalEditEquipo')?.remove();
+  const opt = (v,t,sel)=>`<option value="${_esc(v)}"${sel?' selected':''}>${_esc(t)}</option>`;
+  const areas = Object.keys(window.AREAS_DATA||{});
+  if (eq.area && !areas.includes(eq.area)) areas.push(eq.area);
+  const subs = (window.AREAS_DATA||{})[eq.area] || [];
+  const subList = subs.slice(); if (eq.sub_area && !subList.includes(eq.sub_area)) subList.push(eq.sub_area);
+  let caps = (window.CAPACIDADES_LIST||[]).map(c=>c.valor);
+  if (eq.capacidad && !caps.includes(eq.capacidad)) caps.push(eq.capacidad);
+  const ags = AGENTES_LISTA.slice();
+  const _n = v=>String(v||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+  let agSel = ags.find(a=>_n(a)===_n(eq.agente_extintor));
+  if (eq.agente_extintor && !agSel) { ags.push(eq.agente_extintor); agSel = eq.agente_extintor; }
+  const tipos = [['extintor','🧯 Extintor'],['hidrante','🚒 Hidrante'],['traje_bomberos','🧥 Traje Bomberos'],['camilla','🛏 Camilla'],['regadera','🚿 Regadera / Lavaojos'],['valvula_seccionadora','🔴 Válvula seccionadora']];
+  const fab = eq.fecha_fabricacion ? String(eq.fecha_fabricacion).slice(0,7) : '';
+  const m = document.createElement('div');
+  m.id = 'modalEditEquipo';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:16px;';
+  m.innerHTML = `
+  <div style="background:var(--ash);border:1px solid rgba(255,255,255,.12);border-radius:var(--r);padding:20px;width:100%;max-width:640px;margin:auto;">
+    <div class="sec-title" style="font-size:16px;">✏️ Editar equipo</div>
+    <div style="font-size:12px;color:var(--mist);margin-bottom:14px;">Las inspecciones pasadas no se modifican. El No. de serie y el QR no se pueden cambiar.</div>
+    <div class="fgrid">
+      <div class="ff"><label class="fl">No. de serie (bloqueado)</label><input class="fi" value="${_esc(eq.no_serie)}" disabled style="opacity:.6"/></div>
+      <div class="ff"><label class="fl">Tipo de equipo</label><select class="fs" id="eTipo" onchange="editChangeTipo()">${tipos.map(t=>opt(t[0],t[1],t[0]===eq.tipo)).join('')}</select></div>
+      <div class="ff"><label class="fl">Cliente</label><select class="fs" id="eCliente" onchange="loadPlantasSelect(this.value,'ePlanta')"><option value="">— Sin cliente —</option>${(clis||[]).map(c=>opt(c.id,c.nombre,c.id===eq.cliente_id)).join('')}</select></div>
+      <div class="ff"><label class="fl">Planta</label><select class="fs" id="ePlanta"><option value="">— Sin planta —</option>${(plantas||[]).map(p=>opt(p.id,p.nombre,p.id===eq.planta_id)).join('')}</select></div>
+      <div class="ff"><label class="fl">Área</label><select class="fs" id="eArea" onchange="updateSubAreas('eArea','eSubArea')">${areas.map(a=>opt(a,a,a===eq.area)).join('')}</select></div>
+      <div class="ff"><label class="fl">Sub área</label><select class="fs" id="eSubArea"><option value="">— Sin sub área —</option>${subList.map(x=>opt(x,x,x===eq.sub_area)).join('')}</select></div>
+      <div class="ff"><label class="fl">Marca</label><input class="fi" id="eMarca" value="${_esc(eq.marca)}"/></div>
+      <div class="ff"><label class="fl">Subtipo</label><input class="fi" id="eSubtipo" value="${_esc(eq.subtipo)}"/></div>
+      <div class="ff" id="eCapWrap"><label class="fl">Capacidad</label><select class="fs" id="eCapacidad"><option value="">— Selecciona —</option>${caps.map(c=>opt(c,c,c===eq.capacidad)).join('')}</select></div>
+      <div class="ff" id="eAgWrap"><label class="fl">Agente extintor</label><select class="fs" id="eAgente"><option value="">— Selecciona —</option>${ags.map(a=>opt(a,a,a===agSel)).join('')}</select></div>
+      <div class="ff"><label class="fl">Fecha de fabricación</label><input class="fi" type="month" id="eFab" value="${fab}"/></div>
+      <div class="ff"><label class="fl">Próxima revisión</label><input class="fi" type="date" id="eProx" value="${_esc(eq.fecha_proxima_revision||'')}"/></div>
+    </div>
+    <div class="form-btns">
+      <button class="btn-cancel" onclick="cerrarEditarEquipo()">Cancelar</button>
+      <button class="btn-save" onclick="guardarEdicionEquipo()">Guardar cambios</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  editChangeTipo();
+}
+function editChangeTipo() {
+  const ext = document.getElementById('eTipo').value === 'extintor';
+  document.getElementById('eCapWrap').style.display = ext ? 'flex' : 'none';
+  document.getElementById('eAgWrap').style.display  = ext ? 'flex' : 'none';
+}
+function cerrarEditarEquipo() { document.getElementById('modalEditEquipo')?.remove(); }
+
+async function guardarEdicionEquipo() {
+  const eq = _editEquipo; if (!eq) return;
+  const v = id => document.getElementById(id)?.value.trim() || '';
+  const tipo = v('eTipo');
+  const area = v('eArea');
+  if (!area || !tipo) { showToast('⚠ Área y Tipo son obligatorios', true); return; }
+  const ext = tipo === 'extintor';
+  const cambios = {
+    tipo, area,
+    sub_area: v('eSubArea') || null,
+    marca: v('eMarca'),
+    subtipo: v('eSubtipo'),
+    capacidad: ext ? (v('eCapacidad') || null) : null,
+    agente_extintor: ext ? (v('eAgente') || null) : null,
+    cliente_id: v('eCliente') || null,
+    planta_id: v('ePlanta') || null,
+    fecha_fabricacion: v('eFab') ? v('eFab') + '-01' : null,
+    fecha_proxima_revision: v('eProx') || null,
+  };
+  if (tipo !== eq.tipo && !confirm('Cambiar el TIPO de equipo hará que su historial anterior no se vea en la ficha (queda guardado en su tabla original). ¿Continuar?')) return;
+  loader(true);
+  const { data, error } = await db.from('equipos').update(cambios).eq('id', eq.id).select('*,clientes(nombre),plantas(nombre)').single();
+  loader(false);
+  if (error) { showToast('❌ Error: ' + error.message, true); return; }
+  showToast('✅ Equipo actualizado');
+  cerrarEditarEquipo();
+  try { localStorage.removeItem('cachedEquipos'); } catch(e){}
+  if (currentEquipo && currentEquipo.id === eq.id && document.getElementById('pFicha').style.display !== 'none') await verFicha(data);
+  else if (currentEquipo && currentEquipo.id === eq.id) currentEquipo = data;
+  if (document.getElementById('pAdmin').style.display !== 'none') loadAdminTable();
+  if (document.getElementById('pEquipos').style.display !== 'none') loadEquipos();
 }
 
 // ── LÓGICA QR VIRGEN ──
