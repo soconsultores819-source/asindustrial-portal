@@ -687,7 +687,7 @@ html,body{max-width:100%;overflow-x:hidden;}
           <div class="sec-title" style="margin:0" id="rTitulo">Resultados</div>
           <div style="display:flex;gap:8px;">
             <button class="btn-inspect" onclick="exportarExcel()" style="padding:10px 20px;font-size:13px;margin:0;">
-              📥 Descargar Excel
+              📥 Descargar Excel (con fotos)
             </button>
             <button class="btn-inspect" onclick="exportarPDF()" style="padding:10px 20px;font-size:13px;margin:0;background:var(--fire);border-color:var(--fire);">
               📄 Descargar PDF
@@ -1000,7 +1000,7 @@ html,body{max-width:100%;overflow-x:hidden;}
         </div>
       </div>
       <div class="tbl-wrap"><table>
-        <thead><tr><th>No. Serie</th><th>Área</th><th>Tipo</th><th>Cliente</th><th>Planta</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <thead><tr><th></th><th>No. Serie</th><th>Área</th><th>Tipo</th><th>Cliente</th><th>Planta</th><th>Estado</th><th>Acciones</th></tr></thead>
         <tbody id="tbAdmin"></tbody>
       </table></div>
 
@@ -1883,7 +1883,7 @@ async function loadClientesSelect(targetId) {
 }
 
 async function loadAdminTable() {
-  const { data } = await db.from('equipos').select('*,clientes(nombre),plantas(nombre)').order('tipo').order('no_serie');
+  const { data } = await fetchAll(() => db.from('equipos').select('*,clientes(nombre),plantas(nombre)').eq('activo',true).order('tipo').order('no_serie').order('id'));
   const tbody = document.getElementById('tbAdmin');
   if (!data?.length) { tbody.innerHTML='<tr><td colspan="8" class="empty">Sin equipos</td></tr>'; return; }
 
@@ -2039,14 +2039,16 @@ async function buscarReporte() {
 
   for (const t of tablas) {
     const tabla = tablaMap[t];
-    let q = db.from(tabla).select(`*, equipos(no_serie, area, tipo, subtipo, cliente_id, planta_id, clientes(nombre), plantas(nombre))`);
-    if (mes) {
-      const [y,m] = mes.split('-');
-      const inicio = `${y}-${m}-01`;
-      const fin    = `${y}-${m}-${new Date(y,m,0).getDate()}`;
-      q = q.gte('fecha_inspeccion', inicio).lte('fecha_inspeccion', fin);
-    }
-    const { data } = await q;
+    const { data } = await fetchAll(() => {
+      let q = db.from(tabla).select(`*, equipos(no_serie, area, tipo, subtipo, cliente_id, planta_id, clientes(nombre), plantas(nombre))`).order('id');
+      if (mes) {
+        const [y,m] = mes.split('-');
+        const inicio = `${y}-${m}-01`;
+        const fin    = `${y}-${m}-${new Date(y,m,0).getDate()}`;
+        q = q.gte('fecha_inspeccion', inicio).lte('fecha_inspeccion', fin);
+      }
+      return q;
+    });
     if (data?.length) {
       const filtrado = data.filter(r => {
         if (clienteId    && r.equipos?.cliente_id !== clienteId)   return false;
@@ -2056,11 +2058,15 @@ async function buscarReporte() {
         if (subAreaFiltro && r.sub_area !== subAreaFiltro)          return false;
         return true;
       });
+      const fotosPorInsp = {};
+      const ids = filtrado.map(r => r.id);
+      for (let i = 0; i < ids.length; i += 200) {
+        const { data: fts } = await db.from('fotos_inspeccion').select('inspeccion_id, storage_path').in('inspeccion_id', ids.slice(i, i + 200));
+        (fts || []).forEach(f => { (fotosPorInsp[f.inspeccion_id] = fotosPorInsp[f.inspeccion_id] || []).push(f); });
+      }
       for (const r of filtrado) {
         r._tipo = t;
-        // Cargar fotos de esta inspección
-        const { data: fotos } = await db.from('fotos_inspeccion').select('storage_path').eq('inspeccion_id', r.id);
-        r._fotos = fotos || [];
+        r._fotos = fotosPorInsp[r.id] || [];
         reporteData.push(r);
       }
     }
@@ -2124,7 +2130,6 @@ async function verFichaDesdeReporte(noSerie) {
 function exportarExcel() {
   if (!reporteData.length) return;
 
-  const BOM = '﻿';
   const SUPA_STORAGE = 'https://aidawdimcqxuqgcurrfb.supabase.co/storage/v1/object/public/inspecciones/';
 
   const getCampos = (r) => {
@@ -2190,49 +2195,110 @@ function exportarExcel() {
   reporteData.forEach(r => Object.keys(getCampos(r)).forEach(k => allCampos.add(k)));
   const camposArr = [...allCampos];
 
+  const MAXF = 3;
   const headers = [
     'Fecha','No. Serie','Área','Tipo','Cliente','Planta','Técnico','No. Empleado',
     'Estado','Observaciones',
-    ...camposArr,
-    'Fotos'
+    ...camposArr
   ];
+  const mes = document.getElementById('rMes').value || 'reporte';
+  const cli = document.getElementById('rCliente').options[document.getElementById('rCliente').selectedIndex].text;
 
-  const rows = reporteData.map(r => {
-    const t   = TIPOS[r._tipo]||{label:r._tipo};
-    const est = r.estado==='ok'?'OK':r.estado==='observacion'?'Observación':'Crítico';
-    const campos = getCampos(r);
-    const fotosUrls = (r._fotos||[]).map(f => SUPA_STORAGE + f.storage_path);
-    const fotosCell = fotosUrls.length > 0
-      ? '=HYPERLINK("' + fotosUrls[0] + '","Ver foto")'
-      : '';
-
-    const base = [
-      r.fecha_inspeccion||'',
-      r.equipos?.no_serie||'',
-      r.equipos?.area||'',
-      t.label,
-      r.equipos?.clientes?.nombre||'',
-      r.equipos?.plantas?.nombre||'',
-      r.tecnico_nombre||'',
-      r.tecnico_numero||'',
-      est,
-      (r.observaciones||'').replace(/,/g,';'),
-    ];
-    const camposVals = camposArr.map(k => campos[k]||'');
-    return [...base, ...camposVals, fotosCell].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
+  const cargarExcelJS = () => new Promise((res, rej) => {
+    if (window.ExcelJS) return res();
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+    sc.onload = res; sc.onerror = () => rej(new Error('No se pudo cargar ExcelJS (¿sin internet?)'));
+    document.head.appendChild(sc);
   });
+  // Descarga y reduce una foto a miniatura JPEG (~240px)
+  const miniatura = async (url) => {
+    try {
+      const resp = await fetch(url); if (!resp.ok) return null;
+      const bmp = await createImageBitmap(await resp.blob());
+      const W = 240, sc = Math.min(1, W / bmp.width);
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(bmp.width * sc); cv.height = Math.round(bmp.height * sc);
+      cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
+      const b64 = cv.toDataURL('image/jpeg', 0.7).split(',')[1];
+      return { b64, w: cv.width, h: cv.height };
+    } catch (e) { return null; }
+  };
 
-  const csv = BOM + [headers.map(h=>`"${h}"`).join(','), ...rows].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  const mes  = document.getElementById('rMes').value || 'reporte';
-  const cli  = document.getElementById('rCliente').options[document.getElementById('rCliente').selectedIndex].text;
-  a.href = url;
-  a.download = `AS_Industrial_${cli}_${mes}.csv`.replace(/\s+/g,'_');
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('Reporte descargado — abre en Excel para ver hipervínculos de fotos');
+  (async () => {
+    try {
+      loader(true);
+      showToast('Generando Excel con fotos… puede tardar');
+      await cargarExcelJS();
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Inspecciones', { views: [{ state: 'frozen', ySplit: 1 }] });
+      const cols = [...headers, 'Foto 1', 'Foto 2', 'Foto 3', 'Ligas a fotos'];
+      ws.columns = cols.map(h => ({ header: h, width: h === 'Observaciones' ? 40 : h.startsWith('Foto ') ? 22 : h === 'Ligas a fotos' ? 18 : 16 }));
+      const hr = ws.getRow(1);
+      hr.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      hr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8390E' } };
+      hr.alignment = { vertical: 'middle', wrapText: true };
+      hr.height = 24;
+
+      const fotoCol0 = headers.length; // índice 0-based de 'Foto 1'
+      // Descarga de miniaturas con concurrencia limitada
+      const tareas = [];
+      reporteData.forEach((r, i) => (r._fotos || []).slice(0, MAXF).forEach((f, j) => tareas.push({ i, j, url: SUPA_STORAGE + f.storage_path })));
+      const thumbs = {}; let hechas = 0, idx = 0;
+      const worker = async () => {
+        while (idx < tareas.length) {
+          const t = tareas[idx++];
+          thumbs[t.i + '_' + t.j] = await miniatura(t.url);
+          hechas++;
+          if (hechas % 20 === 0) showToast(`Fotos ${hechas}/${tareas.length}…`);
+        }
+      };
+      await Promise.all(Array.from({ length: 6 }, worker));
+
+      reporteData.forEach((r, i) => {
+        const t = TIPOS[r._tipo] || { label: r._tipo };
+        const est = r.estado === 'ok' ? 'OK' : r.estado === 'observacion' ? 'Observación' : 'Crítico';
+        const campos = getCampos(r);
+        const urls = (r._fotos || []).map(f => SUPA_STORAGE + f.storage_path);
+        const row = ws.addRow([
+          r.fecha_inspeccion || '', r.equipos?.no_serie || '', r.equipos?.area || '', t.label,
+          r.equipos?.clientes?.nombre || '', r.equipos?.plantas?.nombre || '',
+          r.tecnico_nombre || '', r.tecnico_numero || '', est, r.observaciones || '',
+          ...camposArr.map(k => campos[k] || ''), '', '', '',
+          urls.length ? { text: urls.length + ' foto(s) — abrir', hyperlink: urls[0] } : ''
+        ]);
+        row.alignment = { vertical: 'top', wrapText: true };
+        const estCell = row.getCell(9);
+        estCell.font = { bold: true, color: { argb: r.estado === 'ok' ? 'FF2D9E6B' : r.estado === 'observacion' ? 'FFC48A10' : 'FFC42B2B' } };
+        const conFoto = urls.length > 0;
+        if (conFoto) row.height = 96;
+        for (let j = 0; j < MAXF; j++) {
+          const th = thumbs[i + '_' + j];
+          if (!th) continue;
+          const imgId = wb.addImage({ base64: th.b64, extension: 'jpeg' });
+          const hPx = 120, wPx = Math.round(th.w * (hPx / th.h));
+          ws.addImage(imgId, { tl: { col: fotoCol0 + j + 0.05, row: row.number - 1 + 0.05 }, ext: { width: Math.min(wPx, 150), height: Math.min(hPx, 120 * Math.min(1, 150 / wPx)) }, hyperlinks: { hyperlink: urls[j], tooltip: 'Abrir foto original' } });
+        }
+      });
+      ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } };
+      for (let j = 0; j < MAXF; j++) ws.getColumn(fotoCol0 + 1 + j).width = 24;
+
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `AS_Industrial_${cli}_${mes}.xlsx`.replace(/\s+/g, '_');
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      loader(false);
+      showToast('✅ Excel descargado con fotos incrustadas');
+    } catch (e) {
+      loader(false);
+      console.error(e);
+      showToast('❌ No se pudo generar el Excel: ' + e.message, true);
+    }
+  })();
 }
 
 // ── PERFIL Y CONTRASEÑA ──
@@ -2281,7 +2347,7 @@ function showResetPanel() {
   document.getElementById('panelLogin').style.display = 'none';
   // Pre-cargar equipos en caché para uso offline
   if (navigator.onLine) {
-    db.from('equipos').select('*,clientes(nombre)').eq('activo',true).order('tipo').order('no_serie')
+    fetchAll(() => db.from('equipos').select('*,clientes(nombre)').eq('activo',true).order('tipo').order('no_serie').order('id'))
       .then(({ data }) => {
         if (data?.length) {
           localStorage.setItem('cachedEquipos', JSON.stringify(data));
@@ -2546,13 +2612,28 @@ function exportarPDF() {
   showToast('✅ PDF listo con fotos — usa Ctrl+P para guardar');
 }
 
+// Trae TODAS las filas (Supabase corta en 1000 por consulta)
+async function fetchAll(mk) {
+  let all = [], from = 0; const step = 1000;
+  while (true) {
+    const { data, error } = await mk().range(from, from + step - 1);
+    if (error) return { data: all.length ? all : null, error };
+    all = all.concat(data || []);
+    if (!data || data.length < step) break;
+    from += step;
+  }
+  return { data: all, error: null };
+}
+
 async function loadDashboard() {
   let equipos = null;
   if (navigator.onLine) {
-    let qEq = db.from('equipos').select('id,tipo,planta_id').eq('activo',true);
     const _dp = currentPerfil;
-    if (_dp?.rol === 'cliente' && _dp.planta_id) qEq = qEq.eq('planta_id', _dp.planta_id);
-    const { data } = await qEq;
+    const { data } = await fetchAll(() => {
+      let qEq = db.from('equipos').select('id,tipo,planta_id').eq('activo',true).order('id');
+      if (_dp?.rol === 'cliente' && _dp.planta_id) qEq = qEq.eq('planta_id', _dp.planta_id);
+      return qEq;
+    });
     equipos = data;
   } else {
     const cached = localStorage.getItem('cachedEquipos');
@@ -2586,11 +2667,11 @@ async function loadDashboard() {
   // Leer inspecciones del mes desde tabla maestra
   let inspMes = null;
   if (navigator.onLine) {
-    let qInsp = db.from('inspecciones')
+    const { data } = await fetchAll(() => db.from('inspecciones')
       .select('estado, tipo_equipo, equipo_id, equipos(planta_id)')
       .gte('fecha_inspeccion', inicio)
-      .lte('fecha_inspeccion', fin);
-    const { data } = await qInsp;
+      .lte('fecha_inspeccion', fin)
+      .order('id'));
     // Filtrar por planta si es cliente
     const _cp = currentPerfil;
     inspMes = (_cp?.rol === 'cliente' && _cp.planta_id)
@@ -2661,7 +2742,7 @@ async function loadDashboard() {
   const { data: plantasData } = await db.from('plantas').select('id,nombre');
   const plantaLabels=[], plantaCounts=[];
   // Cargar IDs de equipos por planta para cruzar con inspMes
-  const { data: equiposPlanta } = await db.from('equipos').select('id, planta_id').eq('activo', true);
+  const { data: equiposPlanta } = await fetchAll(() => db.from('equipos').select('id, planta_id').eq('activo', true).order('id'));
   if (plantasData?.length) {
     for (const p of plantasData) {
       const eqIds = equiposPlanta?.filter(e=>e.planta_id===p.id).map(e=>e.id)||[];
@@ -2710,6 +2791,7 @@ async function loadDashboard() {
     document.getElementById('barWarn').style.width = Math.round(iWarn/iTot*100)+'%';
     document.getElementById('barCrit').style.width = Math.round(iCrit/iTot*100)+'%';
   }
+  document.getElementById('sOk').textContent = iOk||0;
   document.getElementById('sWarn').textContent = (iWarn||0) + (iCrit||0);
 
   // Tabla equipos recientes — ya no se muestra
@@ -2724,12 +2806,13 @@ async function loadEquipos() {
   let equiposData = null;
 
   if (navigator.onLine) {
-    let q = db.from('equipos').select('*,clientes(nombre),plantas(nombre)').eq('activo',true).order('tipo').order('no_serie');
-    if (filtro) q = q.eq('tipo', filtro);
-    // Rol cliente: filtrar por su planta
     const _p = currentPerfil;
-    if (_p?.rol === 'cliente' && _p.planta_id) q = q.eq('planta_id', _p.planta_id);
-    const { data } = await q;
+    const { data } = await fetchAll(() => {
+      let q = db.from('equipos').select('*,clientes(nombre),plantas(nombre)').eq('activo',true).order('tipo').order('no_serie').order('id');
+      if (filtro) q = q.eq('tipo', filtro);
+      if (_p?.rol === 'cliente' && _p.planta_id) q = q.eq('planta_id', _p.planta_id);
+      return q;
+    });
     equiposData = data;
     if (!filtro && data?.length) {
       localStorage.setItem('cachedEquipos', JSON.stringify(data));
@@ -4168,11 +4251,11 @@ async function loadGraficaTecnicos() {
   cont.innerHTML = '<div class="spinner" style="width:24px;height:24px;border-width:2px;"></div>';
 
   // Obtener inspecciones del rango — solo columnas que existen en tabla maestra
-  const { data, error } = await db.from('inspecciones')
+  const { data, error } = await fetchAll(() => db.from('inspecciones')
     .select('tecnico_nombre, tecnico_id, fecha_inspeccion, estado, equipo_id, equipos(area, plantas(nombre))')
     .gte('fecha_inspeccion', inicio)
     .lte('fecha_inspeccion', fin)
-    .order('fecha_inspeccion');
+    .order('fecha_inspeccion').order('id'));
 
   if (error) {
     console.error('Error graficaTecnicos:', error);
