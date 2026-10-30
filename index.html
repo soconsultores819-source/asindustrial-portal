@@ -389,6 +389,7 @@ html,body{max-width:100%;overflow-x:hidden;}
       <button class="tab active" id="tDash" onclick="goTab('dash')">Dashboard</button>
       <button class="tab" id="tEquipos" onclick="goTab('equipos')">Equipos</button>
       <button class="tab" id="tReportes" onclick="goTab('reportes')">Reportes</button>
+      <button class="tab" id="tFact" style="display:none" onclick="goTab('fact')">Facturación</button>
       <button class="tab" id="tAdmin" style="display:none" onclick="goTab('admin')">Administrar</button>    </div>
     <button class="hamburger" onclick="toggleMenu()" id="hamburgerBtn">☰</button>
     <div class="nav-r">
@@ -408,6 +409,7 @@ html,body{max-width:100%;overflow-x:hidden;}
     <button class="m-tab active" id="mDash" onclick="goTab('dash');toggleMenu()">📊 Dashboard</button>
     <button class="m-tab" id="mEquipos" onclick="goTab('equipos');toggleMenu()">🔧 Equipos</button>
     <button class="m-tab" id="mReportes" onclick="goTab('reportes');toggleMenu()">📄 Reportes</button>
+    <button class="m-tab" id="mFact" style="display:none" onclick="goTab('fact');toggleMenu()">💲 Facturación</button>
     <button class="m-tab" id="mAdmin" style="display:none" onclick="goTab('admin');toggleMenu()">⚙️ Administrar</button>
     <button class="m-tab" onclick="goTab('perfil');toggleMenu()">👤 Mi perfil</button>
     <button class="m-tab" onclick="doLogout()" style="color:#F09595">🚪 Salir</button>
@@ -632,11 +634,11 @@ html,body{max-width:100%;overflow-x:hidden;}
         <div class="fgrid">
           <div class="ff">
             <label class="fl">Cliente</label>
-            <select class="fs" id="rCliente" onchange="loadPlantasSelect(this.value,'rPlanta')"><option value="">— Todos los clientes —</option></select>
+            <select class="fs" id="rCliente" onchange="loadPlantasSelect(this.value,'rPlanta');cargarAreasReporte()"><option value="">— Todos los clientes —</option></select>
           </div>
           <div class="ff">
             <label class="fl">Planta</label>
-            <select class="fs" id="rPlanta"><option value="">— Todas las plantas —</option></select>
+            <select class="fs" id="rPlanta" onchange="cargarAreasReporte()"><option value="">— Todas las plantas —</option></select>
           </div>
           <div class="ff">
             <label class="fl">Mes</label>
@@ -687,7 +689,7 @@ html,body{max-width:100%;overflow-x:hidden;}
           <div class="sec-title" style="margin:0" id="rTitulo">Resultados</div>
           <div style="display:flex;gap:8px;">
             <button class="btn-inspect" onclick="exportarExcel()" style="padding:10px 20px;font-size:13px;margin:0;">
-              📥 Descargar Excel (con fotos)
+              📥 Descargar Excel
             </button>
             <button class="btn-inspect" onclick="exportarPDF()" style="padding:10px 20px;font-size:13px;margin:0;background:var(--fire);border-color:var(--fire);">
               📄 Descargar PDF
@@ -817,6 +819,24 @@ html,body{max-width:100%;overflow-x:hidden;}
         </button>
 
       </div>
+    </div>
+  </div>
+
+
+  <!-- FACTURACIÓN (solo admin) -->
+  <div id="pFact" style="display:none;flex:1;">
+    <div class="main">
+      <div class="pg-title">Facturación</div>
+      <div class="pg-sub">Inspecciones por cliente y mes, estado de cobro y envío al ERP</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;">
+        <div class="ff"><label class="fl">Mes</label><input class="fi" type="month" id="fMes"/></div>
+        <button class="btn-s fire" onclick="cargarFact()" style="padding:11px 18px;">🔍 Calcular</button>
+      </div>
+      <div class="tbl-wrap"><table style="min-width:900px;">
+        <thead><tr><th>Cliente</th><th>Insp.</th><th>✓</th><th>⚠</th><th>✗</th><th>Estado de cobro</th><th>Folio OV</th><th>Folio factura</th><th>Acciones</th></tr></thead>
+        <tbody id="tbFact"><tr><td colspan="9" class="empty">Elige un mes y presiona Calcular</td></tr></tbody>
+      </table></div>
+      <div style="font-size:12px;color:var(--mist);margin-top:10px;">Flujo: Pendiente → Con OV (borrador en ERP) → OV firmada → Facturada. El anexo abre el reporte del cliente en ese mes para descargar el Excel con fotos.</div>
     </div>
   </div>
 
@@ -1993,26 +2013,46 @@ async function initReportes() {
       (data||[]).map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
   }
 
-  // Cargar áreas en el filtro de reportes
-  if (window.AREAS_DATA) {
-    const rArea = document.getElementById('rArea');
-    if (rArea) {
-      rArea.innerHTML = '<option value="">— Todas las áreas —</option>' +
-        Object.keys(window.AREAS_DATA).map(a=>`<option value="${a}">${a}</option>`).join('');
-    }
-  }
+  // Áreas y subáreas según cliente/planta seleccionados
+  await cargarAreasReporte();
 
   const now = new Date();
   document.getElementById('rMes').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+}
+
+// Áreas/subáreas que realmente existen en los equipos del cliente/planta elegidos
+window._repAreas = {};
+async function cargarAreasReporte() {
+  const cli = document.getElementById('rCliente')?.value || '';
+  const pla = document.getElementById('rPlanta')?.value || '';
+  const rArea = document.getElementById('rArea');
+  if (!rArea) return;
+  const { data } = await fetchAll(() => {
+    let q = db.from('equipos').select('area,sub_area').eq('activo', true).order('id');
+    if (cli) q = q.eq('cliente_id', cli);
+    if (pla) q = q.eq('planta_id', pla);
+    return q;
+  });
+  const m = {};
+  (data || []).forEach(e => {
+    if (!e.area) return;
+    (m[e.area] = m[e.area] || new Set());
+    if (e.sub_area) m[e.area].add(e.sub_area);
+  });
+  window._repAreas = {};
+  Object.keys(m).sort().forEach(a => { window._repAreas[a] = [...m[a]].sort(); });
+  rArea.innerHTML = '<option value="">— Todas las áreas —</option>' +
+    Object.keys(window._repAreas).map(a => `<option value="${_esc(a)}">${_esc(a)}</option>`).join('');
+  loadReporteSubAreas();
 }
 
 function loadReporteSubAreas() {
   const area = document.getElementById('rArea')?.value;
   const sel  = document.getElementById('rSubArea');
   if (!sel) return;
-  const subs = (window.AREAS_DATA||{})[area] || [];
+  const subs = (window._repAreas || {})[area] || [];
   sel.innerHTML = '<option value="">— Todas las sub áreas —</option>' +
-    subs.map(s=>`<option value="${s}">${s}</option>`).join('');
+    subs.map(x => `<option value="${_esc(x)}">${_esc(x)}</option>`).join('');
 }
 
 async function buscarReporte() {
@@ -2040,7 +2080,7 @@ async function buscarReporte() {
   for (const t of tablas) {
     const tabla = tablaMap[t];
     const { data } = await fetchAll(() => {
-      let q = db.from(tabla).select(`*, equipos(no_serie, area, tipo, subtipo, cliente_id, planta_id, clientes(nombre), plantas(nombre))`).order('id');
+      let q = db.from(tabla).select(`*, equipos(no_serie, area, sub_area, tipo, subtipo, cliente_id, planta_id, clientes(nombre), plantas(nombre))`).order('id');
       if (mes) {
         const [y,m] = mes.split('-');
         const inicio = `${y}-${m}-01`;
@@ -2055,7 +2095,7 @@ async function buscarReporte() {
         if (plantaFiltro && r.equipos?.planta_id  !== plantaFiltro) return false;
         if (estadoFiltro && r.estado !== estadoFiltro)              return false;
         if (areaFiltro   && r.equipos?.area !== areaFiltro)         return false;
-        if (subAreaFiltro && r.sub_area !== subAreaFiltro)          return false;
+        if (subAreaFiltro && (r.sub_area || r.equipos?.sub_area) !== subAreaFiltro) return false;
         return true;
       });
       const fotosPorInsp = {};
@@ -2091,7 +2131,7 @@ async function buscarReporte() {
   const thead = document.getElementById('rThead');
   const tbody = document.getElementById('rTbody');
   thead.innerHTML = `<tr>
-    <th>Fecha</th><th>No. Serie</th><th>Área</th><th>Tipo</th><th>Cliente</th><th>Planta</th>
+    <th>Fecha</th><th>No. Serie</th><th>Área</th><th>Sub área</th><th>Tipo</th><th>Cliente</th><th>Planta</th>
     <th>Técnico</th><th>Estado</th><th>Observaciones</th><th></th>
   </tr>`;
   tbody.innerHTML = reporteData.map(r => {
@@ -2104,6 +2144,7 @@ async function buscarReporte() {
       <td>${r.fecha_inspeccion||'—'}</td>
       <td style="font-weight:500">${r.equipos?.no_serie||'—'}</td>
       <td>${r.equipos?.area||'—'}</td>
+      <td>${r.sub_area||r.equipos?.sub_area||'—'}</td>
       <td>${t.icon} ${t.label}</td>
       <td>${r.equipos?.clientes?.nombre||'—'}</td>
       <td>${r.equipos?.plantas?.nombre||'—'}</td>
@@ -2197,7 +2238,7 @@ function exportarExcel() {
 
   const MAXF = 3;
   const headers = [
-    'Fecha','No. Serie','Área','Tipo','Cliente','Planta','Técnico','No. Empleado',
+    'Fecha','No. Serie','Área','Sub área','Tipo','Cliente','Planta','Técnico','No. Empleado',
     'Estado','Observaciones',
     ...camposArr
   ];
@@ -2261,14 +2302,14 @@ function exportarExcel() {
         const campos = getCampos(r);
         const urls = (r._fotos || []).map(f => SUPA_STORAGE + f.storage_path);
         const row = ws.addRow([
-          r.fecha_inspeccion || '', r.equipos?.no_serie || '', r.equipos?.area || '', t.label,
+          r.fecha_inspeccion || '', r.equipos?.no_serie || '', r.equipos?.area || '', r.sub_area || r.equipos?.sub_area || '', t.label,
           r.equipos?.clientes?.nombre || '', r.equipos?.plantas?.nombre || '',
           r.tecnico_nombre || '', r.tecnico_numero || '', est, r.observaciones || '',
           ...camposArr.map(k => campos[k] || ''), '', '', '',
           urls.length ? { text: urls.length + ' foto(s) — abrir', hyperlink: urls[0] } : ''
         ]);
         row.alignment = { vertical: 'top', wrapText: true };
-        const estCell = row.getCell(9);
+        const estCell = row.getCell(10);
         estCell.font = { bold: true, color: { argb: r.estado === 'ok' ? 'FF2D9E6B' : r.estado === 'observacion' ? 'FFC48A10' : 'FFC42B2B' } };
         const conFoto = urls.length > 0;
         if (conFoto) row.height = 96;
@@ -2409,6 +2450,9 @@ function showApp() {
   // Administrar: solo admin y supervisor
   document.getElementById('tAdmin').style.display = esAdmin ? 'block' : 'none';
   const mAdm = document.getElementById('mAdmin'); if(mAdm) mAdm.style.display = esAdmin ? 'block' : 'none';
+  const _esAdm = p.rol === 'admin';
+  const tF = document.getElementById('tFact'); if(tF) tF.style.display = _esAdm ? 'block' : 'none';
+  const mF = document.getElementById('mFact'); if(mF) mF.style.display = _esAdm ? 'block' : 'none';
 
   // Reportes: admin, supervisor y cliente (no técnico)
   const tRep = document.getElementById('tReportes'); if(tRep) tRep.style.display = esTecnico ? 'none' : 'block';
@@ -2446,7 +2490,7 @@ function showApp() {
   // Ayudantes van directo a su formulario de registro
   if (p.rol === 'ayudante') {
     // Ocultar tabs que no necesita
-    ['tDash','tEquipos','tReportes','tAdmin','mDash','mEquipos','mReportes','mAdmin'].forEach(id => {
+    ['tDash','tEquipos','tReportes','tAdmin','tFact','mDash','mEquipos','mReportes','mAdmin','mFact'].forEach(id => {
       const el = document.getElementById(id); if(el) el.style.display='none';
     });
     goTab('ayudante');
@@ -2477,7 +2521,7 @@ function showApp() {
 }
 
 // ── NAVEGACIÓN ──
-var PAGES = ['Dash','Equipos','Ficha','Form','Admin','Reportes','Perfil','Ayudante'];
+var PAGES = ['Dash','Equipos','Ficha','Form','Admin','Reportes','Perfil','Ayudante','Fact'];
 function goTab(tab) {
   PAGES.forEach(p => {
     const el = document.getElementById('p'+p); if(el) el.style.display='none';
@@ -2499,6 +2543,7 @@ function goTab(tab) {
     }
   }
   if(tab==='reportes') initReportes();
+  if(tab==='fact') initFact();
   if(tab==='form' && currentEquipo) {
     // Asegurar que capacidades estén cargadas antes de renderizar
     if (!window.CAPACIDADES_LIST?.length) {
@@ -2543,7 +2588,7 @@ function exportarPDF() {
     return `<tr>
       <td>${r.fecha_inspeccion||'—'}</td>
       <td><b>${r.equipos?.no_serie||'—'}</b></td>
-      <td>${r.equipos?.area||'—'}<br><span style="color:#888;font-size:9px;">${r.equipos?.plantas?.nombre||''}</span></td>
+      <td>${r.equipos?.area||'—'}${(r.sub_area||r.equipos?.sub_area)?'<br><span style="font-size:9px;">'+(r.sub_area||r.equipos?.sub_area)+'</span>':''}<br><span style="color:#888;font-size:9px;">${r.equipos?.plantas?.nombre||''}</span></td>
       <td>${t.icon} ${t.label}</td>
       <td>${r.equipos?.clientes?.nombre||'—'}</td>
       <td>${r.tecnico_nombre||'—'}</td>
@@ -2598,7 +2643,7 @@ function exportarPDF() {
   </div>
   <table>
     <thead><tr>
-      <th>Fecha</th><th>No. Serie</th><th>Área / Planta</th><th>Tipo</th>
+      <th>Fecha</th><th>No. Serie</th><th>Área / Sub área / Planta</th><th>Tipo</th>
       <th>Cliente</th><th>Técnico</th><th>Estado</th><th>Observaciones</th><th>Fotos</th>
     </tr></thead>
     <tbody>${rows}</tbody>
@@ -3617,6 +3662,129 @@ async function eliminarEquipoDesde(desde) {
   }
 }
 
+
+
+// ── FACTURACIÓN (solo admin) ──
+const ESTADOS_COBRO = [['pendiente','Pendiente'],['con_ov','Con OV (borrador)'],['ov_firmada','OV firmada'],['facturada','Facturada']];
+var _factRows = [];
+
+function initFact() {
+  if (currentPerfil?.rol !== 'admin') { goTab('dash'); return; }
+  const m = document.getElementById('fMes');
+  if (m && !m.value) { const n = new Date(); m.value = `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`; }
+}
+
+async function cargarFact() {
+  if (currentPerfil?.rol !== 'admin') return;
+  const mes = document.getElementById('fMes').value;
+  if (!mes) { showToast('⚠ Elige un mes', true); return; }
+  const [y, m] = mes.split('-');
+  const inicio = `${y}-${m}-01`, fin = `${y}-${m}-${new Date(y, m, 0).getDate()}`;
+  loader(true);
+  const { data: insp, error } = await fetchAll(() => db.from('inspecciones')
+    .select('id, estado, equipos(cliente_id, clientes(nombre))')
+    .gte('fecha_inspeccion', inicio).lte('fecha_inspeccion', fin).order('id'));
+  const { data: cobros, error: e2 } = await db.from('cobros').select('*').eq('periodo', inicio);
+  loader(false);
+  if (error) { showToast('❌ ' + error.message, true); return; }
+  if (e2) { showToast('❌ Falta crear la tabla "cobros" en Supabase (ver SQL): ' + e2.message, true); }
+  const por = {};
+  (insp || []).forEach(i => {
+    const cid = i.equipos?.cliente_id || 'sin';
+    const o = por[cid] = por[cid] || { cliente_id: cid === 'sin' ? null : cid, nombre: i.equipos?.clientes?.nombre || 'Sin cliente', tot: 0, ok: 0, obs: 0, crit: 0 };
+    o.tot++; if (i.estado === 'ok') o.ok++; else if (i.estado === 'observacion') o.obs++; else o.crit++;
+  });
+  _factRows = Object.values(por).sort((a, b) => a.nombre.localeCompare(b.nombre)).map(o => {
+    const c = (cobros || []).find(x => x.cliente_id === o.cliente_id) || {};
+    return { ...o, periodo: inicio, estado_cobro: c.estado || 'pendiente', folio_ov: c.folio_ov || '', folio_factura: c.folio_factura || '', ov_path: c.ov_firmada_path || '' };
+  });
+  const tb = document.getElementById('tbFact');
+  if (!_factRows.length) { tb.innerHTML = '<tr><td colspan="9" class="empty">Sin inspecciones en ese mes</td></tr>'; return; }
+  tb.innerHTML = _factRows.map((r, i) => `<tr>
+    <td style="font-weight:500">${_esc(r.nombre)}</td>
+    <td>${r.tot}</td><td style="color:var(--ok)">${r.ok}</td><td style="color:var(--warn)">${r.obs}</td><td style="color:var(--ng)">${r.crit}</td>
+    <td><select class="fs" id="fEst${i}" style="padding:7px 8px;font-size:13px;">${ESTADOS_COBRO.map(([v, t]) => `<option value="${v}"${v === r.estado_cobro ? ' selected' : ''}>${t}</option>`).join('')}</select></td>
+    <td><input class="fi" id="fOV${i}" value="${_esc(r.folio_ov)}" style="padding:7px 8px;font-size:13px;width:110px;"/></td>
+    <td><input class="fi" id="fFac${i}" value="${_esc(r.folio_factura)}" style="padding:7px 8px;font-size:13px;width:110px;"/></td>
+    <td style="white-space:nowrap;">
+      <button class="btn-s fire" onclick="guardarCobro(${i})">Guardar</button>
+      <button class="btn-s" onclick="anexoFact(${i})">Anexo</button>
+      <button class="btn-s" onclick="document.getElementById('fFile${i}').click()" title="Adjuntar la Orden de Venta firmada por el cliente">📎 OV firmada</button>
+      <input type="file" id="fFile${i}" accept="application/pdf,image/*" style="display:none" onchange="subirOVFirmada(${i}, this)"/>
+      ${r.ov_path ? `<a class="btn-s" href="${SUPA_URL_STORAGE + r.ov_path}" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block;">Ver OV</a>` : ''}
+      <button class="btn-s" onclick="enviarAlERP(${i})" title="Crea la OV en borrador en tu ERP">→ ERP</button>
+    </td></tr>`).join('');
+}
+
+async function guardarCobro(i) {
+  const r = _factRows[i]; if (!r || !r.cliente_id) { showToast('⚠ Inspecciones sin cliente asignado', true); return; }
+  const estSel = document.getElementById('fEst' + i).value;
+  if (['ov_firmada','facturada'].includes(estSel) && !r.ov_path &&
+      !confirm('Este cobro no tiene la OV firmada adjunta. ¿Guardar de todos modos?')) return;
+  const payload = {
+    cliente_id: r.cliente_id, periodo: r.periodo,
+    estado: document.getElementById('fEst' + i).value,
+    folio_ov: document.getElementById('fOV' + i).value.trim() || null,
+    folio_factura: document.getElementById('fFac' + i).value.trim() || null,
+    total_inspecciones: r.tot, updated_at: new Date().toISOString(),
+  };
+  loader(true);
+  const { error } = await db.from('cobros').upsert(payload, { onConflict: 'cliente_id,periodo' });
+  loader(false);
+  if (error) { showToast('❌ ' + error.message, true); return; }
+  showToast('✅ Estado de cobro guardado');
+}
+
+const SUPA_URL_STORAGE = 'https://aidawdimcqxuqgcurrfb.supabase.co/storage/v1/object/public/inspecciones/';
+async function subirOVFirmada(i, input) {
+  const r = _factRows[i]; const f = input.files?.[0]; if (!r || !f) return;
+  if (f.size > 10 * 1024 * 1024) { showToast('⚠ Máximo 10 MB', true); return; }
+  const ext = (f.name.split('.').pop() || 'pdf').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const path = `ovs/${r.cliente_id}/${r.periodo.slice(0, 7)}-${Date.now()}.${ext}`;
+  loader(true);
+  const { error: eUp } = await db.storage.from('inspecciones').upload(path, f, { upsert: true, contentType: f.type });
+  if (eUp) { loader(false); showToast('❌ ' + eUp.message, true); return; }
+  const { error } = await db.from('cobros').upsert({
+    cliente_id: r.cliente_id, periodo: r.periodo, ov_firmada_path: path,
+    estado: ['facturada'].includes(r.estado_cobro) ? 'facturada' : 'ov_firmada',
+    folio_ov: document.getElementById('fOV' + i).value.trim() || null,
+    total_inspecciones: r.tot, updated_at: new Date().toISOString(),
+  }, { onConflict: 'cliente_id,periodo' });
+  loader(false);
+  if (error) { showToast('❌ ' + error.message, true); return; }
+  showToast('✅ OV firmada adjuntada');
+  cargarFact();
+}
+
+async function anexoFact(i) {
+  const r = _factRows[i]; if (!r) return;
+  goTab('reportes');
+  await initReportes();
+  const sel = document.getElementById('rCliente');
+  if (sel && r.cliente_id) { sel.value = r.cliente_id; await loadPlantasSelect(r.cliente_id, 'rPlanta'); }
+  document.getElementById('rMes').value = r.periodo.slice(0, 7);
+  buscarReporte();
+}
+
+async function enviarAlERP(i) {
+  const r = _factRows[i]; if (!r || !r.cliente_id) return;
+  if (!confirm(`¿Crear Orden de Venta en borrador en el ERP?\n\n${r.nombre} — ${r.periodo.slice(0,7)}\n${r.tot} inspecciones`)) return;
+  const { data: { session } } = await db.auth.getSession();
+  loader(true);
+  try {
+    const resp = await fetch('/api/erp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ cliente_id: r.cliente_id, cliente: r.nombre, periodo: r.periodo, total: r.tot, ok: r.ok, observacion: r.obs, critico: r.crit })
+    });
+    const j = await resp.json().catch(() => ({}));
+    loader(false);
+    if (!resp.ok) { showToast('❌ ' + (j.error || 'ERP no disponible'), true); return; }
+    document.getElementById('fOV' + i).value = j.folio_ov || '';
+    document.getElementById('fEst' + i).value = 'con_ov';
+    await guardarCobro(i);
+  } catch (e) { loader(false); showToast('❌ ' + e.message, true); }
+}
 
 // ── EDITAR EQUIPO (admin/supervisor) ──
 var _editEquipo = null;
