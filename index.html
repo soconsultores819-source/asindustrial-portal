@@ -1775,11 +1775,12 @@ async function saveUsuario() {
 }
 
 async function loadUsuariosAdmin() {
-  const { data } = await db.from('perfiles')
-    .select('*, clientes(nombre), plantas(nombre)')
+  const { data, error: errU } = await db.from('perfiles')
+    .select('*, clientes(nombre), plantas!planta_id(nombre)')
     .order('created_at', { ascending: false });
   const tbody = document.getElementById('tbUsuarios');
   if (!tbody) return;
+  if (errU) { tbody.innerHTML='<tr><td colspan="7" class="empty">Error al cargar usuarios: '+errU.message+'</td></tr>'; return; }
   if (!data?.length) { tbody.innerHTML='<tr><td colspan="7" class="empty">Sin usuarios registrados</td></tr>'; return; }
   window._ppCount = {};
   try { const { data: pp } = await db.from('perfil_plantas').select('perfil_id'); (pp||[]).forEach(x => { window._ppCount[x.perfil_id] = (window._ppCount[x.perfil_id]||0) + 1; }); } catch (e) {}
