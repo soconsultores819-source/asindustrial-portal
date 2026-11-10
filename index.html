@@ -282,12 +282,17 @@ html,body{max-width:100%;overflow-x:hidden;}
         </div>
         <div id="eUserPlantaWrap" style="display:none;flex-direction:column;gap:8px;">
           <div class="ff"><label class="fl">Cliente</label>
-            <select class="fs" id="eUserCliente" onchange="loadPlantasSelect(this.value,'eUserPlanta')">
+            <select class="fs" id="eUserCliente" onchange="loadPlantasSelect(this.value,'eUserPlanta');cargarPlantasExtra(this.value,[])">
               <option value="">— Sin cliente —</option>
             </select>
           </div>
           <div class="ff"><label class="fl">Planta</label>
             <select class="fs" id="eUserPlanta"><option value="">— Sin planta —</option></select>
+            <small style="color:var(--mist);font-size:10px;">Planta principal. Vacía = ve todas las plantas del cliente.</small>
+          </div>
+          <div class="ff"><label class="fl">Plantas adicionales (opcional)</label>
+            <div id="eUserPlantasExtra" style="display:flex;flex-direction:column;gap:6px;font-size:13px;"></div>
+            <small style="color:var(--mist);font-size:10px;">Marca las otras plantas que también debe ver este usuario.</small>
           </div>
         </div>
         <div class="ff"><label class="fl">Nueva contraseña</label>
@@ -1307,6 +1312,20 @@ async function loadPerfil(user) {
   currentUser = user;
   const { data } = await db.from('perfiles').select('*').eq('id', user.id).single();
   currentPerfil = data;
+  if (currentPerfil) {
+    let extras = [];
+    try {
+      const r = await db.from('perfil_plantas').select('planta_id').eq('perfil_id', user.id);
+      extras = (r.data || []).map(x => x.planta_id);
+    } catch (e) {}
+    currentPerfil.plantas_ids = [...new Set([currentPerfil.planta_id, ...extras].filter(Boolean))];
+  }
+}
+// Plantas permitidas del usuario cliente (null = sin restricción de planta)
+function misPlantas() {
+  const p = currentPerfil;
+  if (p?.rol !== 'cliente') return null;
+  return p.plantas_ids?.length ? p.plantas_ids : null;
 }
 
 // ── REPORTES ──
@@ -1762,6 +1781,8 @@ async function loadUsuariosAdmin() {
   const tbody = document.getElementById('tbUsuarios');
   if (!tbody) return;
   if (!data?.length) { tbody.innerHTML='<tr><td colspan="7" class="empty">Sin usuarios registrados</td></tr>'; return; }
+  window._ppCount = {};
+  try { const { data: pp } = await db.from('perfil_plantas').select('perfil_id'); (pp||[]).forEach(x => { window._ppCount[x.perfil_id] = (window._ppCount[x.perfil_id]||0) + 1; }); } catch (e) {}
   tbody.innerHTML = data.map(u => {
     const rolColor = u.rol==='admin'?'r-admin':u.rol==='tecnico'?'r-tecnico':'r-cliente';
     const rolIcon  = u.rol==='admin'?'⚙️':u.rol==='tecnico'?'🔧':'👤';
@@ -1770,7 +1791,7 @@ async function loadUsuariosAdmin() {
       <td style="font-size:12px;color:var(--mist)">${u.email||u.id.substring(0,8)+'...'}</td>
       <td><span class="rbadge ${rolColor}">${rolIcon} ${u.rol}</span></td>
       <td>${u.clientes?.nombre||'—'}</td>
-      <td>${u.plantas?.nombre||'—'}</td>
+      <td>${u.plantas?.nombre||'—'}${(window._ppCount||{})[u.id] ? ` <span style="color:var(--mist);font-size:11px;">+${window._ppCount[u.id]} más</span>` : ''}</td>
       <td><span class="badge b-ok">Activo</span></td>
       <td><button class="btn-s" onclick='editUsuario(${JSON.stringify(u)})'>✏️ Editar</button></td>
     </tr>`;
@@ -1790,7 +1811,10 @@ function editUsuario(u) {
     if (!sel) return;
     sel.innerHTML = '<option value="">— Sin cliente —</option>' +
       (data||[]).map(c=>`<option value="${c.id}"${c.id===u.cliente_id?' selected':''}>${c.nombre}</option>`).join('');
-    if (u.cliente_id) loadPlantasSelect(u.cliente_id, 'eUserPlanta');
+    if (u.cliente_id) {
+      loadPlantasSelect(u.cliente_id, 'eUserPlanta').then(() => { const sp = document.getElementById('eUserPlanta'); if (sp) sp.value = u.planta_id || ''; });
+      db.from('perfil_plantas').select('planta_id').eq('perfil_id', u.id).then(({data:ex}) => cargarPlantasExtra(u.cliente_id, (ex||[]).map(x=>x.planta_id)));
+    } else cargarPlantasExtra('', []);
   });
   document.getElementById('modalEditUser').style.display = 'flex';
 }
@@ -1811,6 +1835,15 @@ async function eliminarUsuario() {
   document.getElementById('modalEditUser').style.display = 'none';
   showToast('✅ Usuario eliminado correctamente');
   loadUsuariosAdmin();
+}
+
+async function cargarPlantasExtra(clienteId, marcadas) {
+  const box = document.getElementById('eUserPlantasExtra'); if (!box) return;
+  if (!clienteId) { box.innerHTML = '<span style="color:var(--mist)">Elige un cliente</span>'; return; }
+  const { data } = await db.from('plantas').select('id,nombre').eq('cliente_id', clienteId).eq('activo', true).order('nombre');
+  box.innerHTML = (data || []).map(pl =>
+    `<label style="display:flex;gap:8px;align-items:center;cursor:pointer;"><input type="checkbox" class="chkPlantaExtra" value="${pl.id}"${marcadas.includes(pl.id) ? ' checked' : ''}/> ${_esc(pl.nombre)}</label>`
+  ).join('') || '<span style="color:var(--mist)">Sin plantas</span>';
 }
 
 function toggleEditPlantaWrap(rol) {
@@ -1853,6 +1886,18 @@ async function saveEditUsuario() {
   }).eq('id', id);
 
   if (error) { loader(false); showToast('❌ Error: '+error.message, true); return; }
+
+  // Plantas adicionales (solo rol cliente)
+  {
+    const extras = rol === 'cliente' ? [...document.querySelectorAll('.chkPlantaExtra:checked')].map(c => c.value) : [];
+    await db.from('perfil_plantas').delete().eq('perfil_id', id);
+    const todas = [...new Set(extras)].filter(x => x !== planta);
+    if (todas.length) {
+      const { error: e3 } = await db.from('perfil_plantas').insert(todas.map(pid => ({ perfil_id: id, planta_id: pid })));
+      if (e3) { loader(false); showToast('❌ Plantas adicionales: ' + e3.message, true); return; }
+      if (!planta) await db.from('perfiles').update({ planta_id: todas[0] }).eq('id', id); // con extras siempre hay una principal
+    }
+  }
 
   loader(false);
   document.getElementById('modalEditUser').style.display = 'none';
@@ -2005,9 +2050,17 @@ async function initReportes() {
     const { data: cli } = await db.from('clientes').select('id,nombre').eq('id', p.cliente_id).single();
     if (cli) sel.innerHTML = `<option value="${cli.id}">${cli.nombre}</option>`;
     await loadPlantasSelect(p.cliente_id, 'rPlanta');
-    if (p.planta_id) document.getElementById('rPlanta').value = p.planta_id;
+    const _mp = misPlantas();
+    const rp = document.getElementById('rPlanta');
     sel.disabled = true;
-    document.getElementById('rPlanta').disabled = true;
+    if (_mp && _mp.length > 1) {
+      // Varias plantas: solo las suyas + "Todas mis plantas"
+      [...rp.options].forEach(o => { if (o.value && !_mp.includes(o.value)) o.remove(); });
+      rp.options[0].text = '— Todas mis plantas —';
+      rp.value = '';
+    } else if (_mp) {
+      rp.value = _mp[0]; rp.disabled = true;
+    }
   } else {
     sel.innerHTML = '<option value="">— Todos los clientes —</option>' +
       (data||[]).map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
@@ -2065,7 +2118,9 @@ async function buscarReporte() {
   const subAreaFiltro = document.getElementById('rSubArea')?.value || '';
   // Para rol cliente, forzar su planta
   const p = currentPerfil;
-  const plantaFiltro = (p?.rol==='cliente' && p.planta_id) ? p.planta_id : plantaId;
+  const _mpl = misPlantas();
+  const plantaFiltro = plantaId;
+  const plantasPermitidas = _mpl;
 
   loader(true);
   reporteData = [];
@@ -2093,6 +2148,7 @@ async function buscarReporte() {
       const filtrado = data.filter(r => {
         if (clienteId    && r.equipos?.cliente_id !== clienteId)   return false;
         if (plantaFiltro && r.equipos?.planta_id  !== plantaFiltro) return false;
+        if (plantasPermitidas && !plantasPermitidas.includes(r.equipos?.planta_id)) return false;
         if (estadoFiltro && r.estado !== estadoFiltro)              return false;
         if (areaFiltro   && r.equipos?.area !== areaFiltro)         return false;
         if (subAreaFiltro && (r.sub_area || r.equipos?.sub_area) !== subAreaFiltro) return false;
@@ -2465,9 +2521,9 @@ function showApp() {
   // Botón inspeccionar: todos menos cliente
   document.getElementById('btnInspWrap').style.display = esCliente ? 'none' : 'block';
   let dashMsg = 'Bienvenido, ' + p.nombre + ' — ' + new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  if (p.rol === 'cliente' && p.planta_id) {
-    db.from('plantas').select('nombre').eq('id', p.planta_id).single().then(({data:pl}) => {
-      if (pl) document.getElementById('dashSub').textContent = dashMsg + ' · 🏭 ' + pl.nombre;
+  if (p.rol === 'cliente' && p.plantas_ids?.length) {
+    db.from('plantas').select('nombre').in('id', p.plantas_ids).then(({data:pl}) => {
+      if (pl?.length) document.getElementById('dashSub').textContent = dashMsg + ' · 🏭 ' + pl.map(x=>x.nombre).join(', ');
     });
   } else {
     document.getElementById('dashSub').textContent = dashMsg;
@@ -2676,7 +2732,7 @@ async function loadDashboard() {
     const _dp = currentPerfil;
     const { data } = await fetchAll(() => {
       let qEq = db.from('equipos').select('id,tipo,planta_id').eq('activo',true).order('id');
-      if (_dp?.rol === 'cliente' && _dp.planta_id) qEq = qEq.eq('planta_id', _dp.planta_id);
+      { const _m = misPlantas(); if (_m) qEq = qEq.in('planta_id', _m); }
       return qEq;
     });
     equipos = data;
@@ -2719,8 +2775,8 @@ async function loadDashboard() {
       .order('id'));
     // Filtrar por planta si es cliente
     const _cp = currentPerfil;
-    inspMes = (_cp?.rol === 'cliente' && _cp.planta_id)
-      ? (data||[]).filter(i => i.equipos?.planta_id === _cp.planta_id)
+    inspMes = (misPlantas())
+      ? (data||[]).filter(i => misPlantas().includes(i.equipos?.planta_id))
       : data;
     if (data) localStorage.setItem('cachedInspMes', JSON.stringify({ data, mes: inicio }));
   } else {
@@ -2855,7 +2911,7 @@ async function loadEquipos() {
     const { data } = await fetchAll(() => {
       let q = db.from('equipos').select('*,clientes(nombre),plantas(nombre)').eq('activo',true).order('tipo').order('no_serie').order('id');
       if (filtro) q = q.eq('tipo', filtro);
-      if (_p?.rol === 'cliente' && _p.planta_id) q = q.eq('planta_id', _p.planta_id);
+      { const _m = misPlantas(); if (_m) q = q.in('planta_id', _m); }
       return q;
     });
     equiposData = data;
