@@ -694,7 +694,7 @@ html,body{max-width:100%;overflow-x:hidden;}
           <div class="sec-title" style="margin:0" id="rTitulo">Resultados</div>
           <div style="display:flex;gap:8px;">
             <button class="btn-inspect" onclick="exportarExcel()" style="padding:10px 20px;font-size:13px;margin:0;">
-              📥 Descargar Excel
+              📥 Descargar Excel (con fotos)
             </button>
             <button class="btn-inspect" onclick="exportarPDF()" style="padding:10px 20px;font-size:13px;margin:0;background:var(--fire);border-color:var(--fire);">
               📄 Descargar PDF
@@ -2167,6 +2167,16 @@ async function buscarReporte() {
         reporteData.push(r);
       }
     }
+  }
+
+  // Orden: Área → Sub área → No. de serie → Fecha (aplica a pantalla, Excel y PDF)
+  {
+    const _c = (x, y) => String(x || '').localeCompare(String(y || ''), 'es', { numeric: true, sensitivity: 'base' });
+    reporteData.sort((a, b) =>
+      _c(a.equipos?.area, b.equipos?.area) ||
+      _c(a.sub_area || a.equipos?.sub_area, b.sub_area || b.equipos?.sub_area) ||
+      _c(a.equipos?.no_serie, b.equipos?.no_serie) ||
+      _c(a.fecha_inspeccion, b.fecha_inspeccion));
   }
 
   loader(false);
