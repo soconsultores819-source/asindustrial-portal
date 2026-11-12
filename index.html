@@ -749,6 +749,11 @@ html,body{max-width:100%;overflow-x:hidden;}
         </div>
 
         <div class="ff">
+          <label class="fl">Ubicación (opcional)</label>
+          <input class="fi" id="ayUbicacion" placeholder="Ej. Columna 12, junto a puerta 3"/>
+        </div>
+
+        <div class="ff">
           <label class="fl">Tipo de equipo *</label>
           <select class="fi" id="ayTipo" onchange="ayudanteChangeTipo()">
             <option value="">— Selecciona —</option>
@@ -978,6 +983,9 @@ html,body{max-width:100%;overflow-x:hidden;}
           </div>
           <div class="ff"><label class="fl">Sub área</label>
             <select class="fs" id="aSubArea" disabled><option value="">— Selecciona área primero —</option></select>
+          </div>
+          <div class="ff"><label class="fl">Ubicación (opcional)</label>
+            <input class="fi" id="aUbicacion" placeholder="Ej. Columna 12, junto a puerta 3"/>
           </div>
           <div class="ff"><label class="fl">Tipo de equipo *</label>
             <select class="fs" id="aTipo" onchange="adminChangeTipo()">
@@ -2018,6 +2026,7 @@ async function saveEquipo() {
     no_serie:   serieAdmin,
     area:       document.getElementById('aArea').value.trim(),
     sub_area:   document.getElementById('aSubArea')?.value.trim()||null,
+    ubicacion:  document.getElementById('aUbicacion')?.value.trim()||null,
     tipo:       tipo,
     subtipo:    document.getElementById('aSubtipo').value.trim(),
     marca:      document.getElementById('aMarca').value.trim(),
@@ -2136,7 +2145,7 @@ async function buscarReporte() {
   for (const t of tablas) {
     const tabla = tablaMap[t];
     const { data } = await fetchAll(() => {
-      let q = db.from(tabla).select(`*, equipos(no_serie, area, sub_area, tipo, subtipo, cliente_id, planta_id, clientes(nombre), plantas(nombre))`).order('id');
+      let q = db.from(tabla).select(`*, equipos(no_serie, area, sub_area, ubicacion, tipo, subtipo, cliente_id, planta_id, clientes(nombre), plantas(nombre))`).order('id');
       if (mes) {
         const [y,m] = mes.split('-');
         const inicio = `${y}-${m}-01`;
@@ -2198,7 +2207,7 @@ async function buscarReporte() {
   const thead = document.getElementById('rThead');
   const tbody = document.getElementById('rTbody');
   thead.innerHTML = `<tr>
-    <th>Fecha</th><th>No. Serie</th><th>Área</th><th>Sub área</th><th>Tipo</th><th>Cliente</th><th>Planta</th>
+    <th>Fecha</th><th>No. Serie</th><th>Área</th><th>Sub área</th><th>Ubicación</th><th>Tipo</th><th>Cliente</th><th>Planta</th>
     <th>Técnico</th><th>Estado</th><th>Observaciones</th><th></th>
   </tr>`;
   tbody.innerHTML = reporteData.map(r => {
@@ -2212,6 +2221,7 @@ async function buscarReporte() {
       <td style="font-weight:500">${r.equipos?.no_serie||'—'}</td>
       <td>${r.equipos?.area||'—'}</td>
       <td>${r.sub_area||r.equipos?.sub_area||'—'}</td>
+      <td>${r.ubicacion||r.equipos?.ubicacion||'—'}</td>
       <td>${t.icon} ${t.label}</td>
       <td>${r.equipos?.clientes?.nombre||'—'}</td>
       <td>${r.equipos?.plantas?.nombre||'—'}</td>
@@ -2305,7 +2315,7 @@ function exportarExcel() {
 
   const MAXF = 3;
   const headers = [
-    'Fecha','No. Serie','Área','Sub área','Tipo','Cliente','Planta','Técnico','No. Empleado',
+    'Fecha','No. Serie','Área','Sub área','Ubicación','Tipo','Cliente','Planta','Técnico','No. Empleado',
     'Estado','Observaciones',
     ...camposArr
   ];
@@ -2369,14 +2379,14 @@ function exportarExcel() {
         const campos = getCampos(r);
         const urls = (r._fotos || []).map(f => SUPA_STORAGE + f.storage_path);
         const row = ws.addRow([
-          r.fecha_inspeccion || '', r.equipos?.no_serie || '', r.equipos?.area || '', r.sub_area || r.equipos?.sub_area || '', t.label,
+          r.fecha_inspeccion || '', r.equipos?.no_serie || '', r.equipos?.area || '', r.sub_area || r.equipos?.sub_area || '', r.ubicacion || r.equipos?.ubicacion || '', t.label,
           r.equipos?.clientes?.nombre || '', r.equipos?.plantas?.nombre || '',
           r.tecnico_nombre || '', r.tecnico_numero || '', est, r.observaciones || '',
           ...camposArr.map(k => campos[k] || ''), '', '', '',
           urls.length ? { text: urls.length + ' foto(s) — abrir', hyperlink: urls[0] } : ''
         ]);
         row.alignment = { vertical: 'top', wrapText: true };
-        const estCell = row.getCell(10);
+        const estCell = row.getCell(11);
         estCell.font = { bold: true, color: { argb: r.estado === 'ok' ? 'FF2D9E6B' : r.estado === 'observacion' ? 'FFC48A10' : 'FFC42B2B' } };
         const conFoto = urls.length > 0;
         if (conFoto) row.height = 96;
@@ -2654,7 +2664,7 @@ function exportarPDF() {
 
     return `<tr>
       <td>${r.fecha_inspeccion||'—'}</td>
-      <td><b>${r.equipos?.no_serie||'—'}</b></td>
+      <td><b>${r.equipos?.no_serie||'—'}</b>${(r.ubicacion||r.equipos?.ubicacion)?'<br><span style="font-size:9px;color:#555;">📍 '+(r.ubicacion||r.equipos?.ubicacion)+'</span>':''}</td>
       <td>${r.equipos?.area||'—'}${(r.sub_area||r.equipos?.sub_area)?'<br><span style="font-size:9px;">'+(r.sub_area||r.equipos?.sub_area)+'</span>':''}<br><span style="color:#888;font-size:9px;">${r.equipos?.plantas?.nombre||''}</span></td>
       <td>${t.icon} ${t.label}</td>
       <td>${r.equipos?.clientes?.nombre||'—'}</td>
@@ -3184,15 +3194,18 @@ function renderForm() {
         <div class="ff"><label class="fl">Área</label>
           <select class="fs" id="fArea" onchange="updateSubAreas('fArea','fSubArea')">
             <option value="">— Selecciona área —</option>
+            ${(Object.keys(AREAS_DATA).includes(e.area)||!e.area?'':`<option value="${e.area}" selected>${e.area}</option>`)}
             ${Object.keys(AREAS_DATA).map(a=>`<option value="${a}" ${e.area===a?'selected':''}>${a}</option>`).join('')}
           </select>
         </div>
         <div class="ff"><label class="fl">Sub área</label>
           <select class="fs" id="fSubArea">
-            <option value="">— Selecciona área primero —</option>
-            ${(AREAS_DATA[e.area]||[]).map(s=>`<option value="${s}">${s}</option>`).join('')}
+            <option value="">— Sin sub área —</option>
+            ${(e.sub_area && !(AREAS_DATA[e.area]||[]).includes(e.sub_area)) ? `<option value="${e.sub_area}" selected>${e.sub_area}</option>` : ''}
+            ${(AREAS_DATA[e.area]||[]).map(s=>`<option value="${s}" ${e.sub_area===s?'selected':''}>${s}</option>`).join('')}
           </select>
         </div>
+        <div class="ff"><label class="fl">Ubicación</label><input class="fi" id="fUbicacion" value="${(e.ubicacion||'').replace(/"/g,'&quot;')}" placeholder="Ej. Columna 12, junto a puerta 3"/></div>
         <div class="ff"><label class="fl">Tipo de equipo</label><input class="fi" value="${TIPOS[e.tipo]?.label||e.tipo}" readonly style="opacity:.6"/></div>
         <div class="ff"><label class="fl">No. de serie</label><input class="fi" id="fSerie" value="${e.no_serie||''}" readonly style="opacity:.6"/></div>
         <div class="ff"><label class="fl">Marca</label><input class="fi" id="fMarca" value="${e.marca||''}"/></div>
@@ -3439,6 +3452,7 @@ async function saveInspection() {
     tecnico_id: currentUser?.id||null,
     tecnico_nombre: getV('fTecNombre'),
     sub_area: getV('fSubArea')||null,
+    ubicacion: getV('fUbicacion')||null,
     tecnico_numero: getV('fTecNum'),
     fecha_inspeccion: fecha,
     area: getV('fArea'),
@@ -3600,7 +3614,11 @@ async function saveInspection() {
     }
   }
 
-  await db.from('equipos').update({ fecha_ultima_revision: fecha }).eq('id', currentEquipo.id);
+  {
+    const _upd = { fecha_ultima_revision: fecha };
+    if (document.getElementById('fUbicacion')) _upd.ubicacion = getV('fUbicacion') || null;
+    await db.from('equipos').update(_upd).eq('id', currentEquipo.id);
+  }
   loader(false);
   document.getElementById('formMain').style.display = 'none';
   document.getElementById('formSuccess').style.display = 'flex';
@@ -3896,6 +3914,7 @@ async function abrirEditarEquipo(eq) {
       <div class="ff"><label class="fl">Planta</label><select class="fs" id="ePlanta"><option value="">— Sin planta —</option>${(plantas||[]).map(p=>opt(p.id,p.nombre,p.id===eq.planta_id)).join('')}</select></div>
       <div class="ff"><label class="fl">Área</label><select class="fs" id="eArea" onchange="updateSubAreas('eArea','eSubArea')">${areas.map(a=>opt(a,a,a===eq.area)).join('')}</select></div>
       <div class="ff"><label class="fl">Sub área</label><select class="fs" id="eSubArea"><option value="">— Sin sub área —</option>${subList.map(x=>opt(x,x,x===eq.sub_area)).join('')}</select></div>
+      <div class="ff"><label class="fl">Ubicación</label><input class="fi" id="eUbicacion" value="${_esc(eq.ubicacion)}" placeholder="Ej. Columna 12, junto a puerta 3"/></div>
       <div class="ff"><label class="fl">Marca</label><input class="fi" id="eMarca" value="${_esc(eq.marca)}"/></div>
       <div class="ff"><label class="fl">Subtipo</label><input class="fi" id="eSubtipo" value="${_esc(eq.subtipo)}"/></div>
       <div class="ff" id="eCapWrap"><label class="fl">Capacidad</label><select class="fs" id="eCapacidad"><option value="">— Selecciona —</option>${caps.map(c=>opt(c,c,c===eq.capacidad)).join('')}</select></div>
@@ -3928,6 +3947,7 @@ async function guardarEdicionEquipo() {
   const cambios = {
     tipo, area,
     sub_area: v('eSubArea') || null,
+    ubicacion: v('eUbicacion') || null,
     marca: v('eMarca'),
     subtipo: v('eSubtipo'),
     capacidad: ext ? (v('eCapacidad') || null) : null,
@@ -4114,7 +4134,7 @@ async function checkEquipoPendienteAyudante() {
 
 function bloquearFormularioEquipo() {
   // Bloquear todos los inputs del formulario de ayudante
-  ['ayTipo','ayNoSerie','ayArea','aySubArea','ayMarca','ayCapacidad','ayAgente','ayFabricacion','ayObservaciones']
+  ['ayTipo','ayNoSerie','ayArea','aySubArea','ayUbicacion','ayMarca','ayCapacidad','ayAgente','ayFabricacion','ayObservaciones']
     .forEach(id => {
       const el = document.getElementById(id);
       if (el) { el.disabled = true; el.style.opacity = '0.5'; }
@@ -4161,6 +4181,7 @@ async function saveEquipoAyudante() {
   const payload = {
     tipo, no_serie: serie, area,
     sub_area: sub_area||null,
+    ubicacion: document.getElementById('ayUbicacion')?.value.trim()||null,
     marca: marca||null,
     capacidad: cap||null,
     agente_extintor: agente||null,
